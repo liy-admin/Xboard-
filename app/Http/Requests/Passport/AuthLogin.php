@@ -15,7 +15,9 @@ class AuthLogin extends FormRequest
     {
         return [
             'email' => 'required|email:strict',
-            'password' => 'required|min:8'
+            'password' => 'required|min:8',
+            'device_name' => 'nullable|string|max:100',
+            'device_id' => 'nullable|string|max:100'
         ];
     }
 

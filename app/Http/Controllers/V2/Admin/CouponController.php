@@ -13,11 +13,26 @@ use Illuminate\Support\Facades\DB;
 
 class CouponController extends Controller
 {
+    private const ALLOWED_FILTER_COLUMNS = [
+        'id', 'code', 'name', 'type', 'value', 'show',
+        'limit_use', 'limit_use_with_user', 'started_at', 'ended_at',
+        'created_at', 'updated_at',
+    ];
+
+    private const ALLOWED_SORT_COLUMNS = [
+        'id', 'name', 'type', 'value', 'show',
+        'limit_use', 'started_at', 'ended_at',
+        'created_at', 'updated_at',
+    ];
+
     private function applyFiltersAndSorts(Request $request, $builder)
     {
         if ($request->has('filter')) {
             collect($request->input('filter'))->each(function ($filter) use ($builder) {
                 $key = $filter['id'];
+                if (!in_array($key, self::ALLOWED_FILTER_COLUMNS, true)) {
+                    return;
+                }
                 $value = $filter['value'];
                 $builder->where(function ($query) use ($key, $value) {
                     if (is_array($value)) {
@@ -32,6 +47,9 @@ class CouponController extends Controller
         if ($request->has('sort')) {
             collect($request->input('sort'))->each(function ($sort) use ($builder) {
                 $key = $sort['id'];
+                if (!in_array($key, self::ALLOWED_SORT_COLUMNS, true)) {
+                    return;
+                }
                 $value = $sort['desc'] ? 'DESC' : 'ASC';
                 $builder->orderBy($key, $value);
             });

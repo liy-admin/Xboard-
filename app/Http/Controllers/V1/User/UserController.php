@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1\User;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\User\UserCancelAccount;
 use App\Http\Requests\User\UserChangePassword;
 use App\Http\Requests\User\UserTransfer;
 use App\Http\Requests\User\UserUpdate;
@@ -19,6 +20,7 @@ use App\Utils\Helper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
@@ -132,8 +134,10 @@ class UserController extends Controller
     {
         $user = User::where('id', $request->user()->id)
             ->select([
+                'id',
                 'plan_id',
                 'token',
+                'enc_key',
                 'expired_at',
                 'u',
                 'd',
@@ -154,7 +158,10 @@ class UserController extends Controller
                 return $this->fail([400, __('Subscription plan does not exist')]);
             }
         }
-        $user['subscribe_url'] = Helper::getSubscribeUrl($user['token']);
+        $user['subscribe_url'] = Helper::getEncryptedSubscribeUrl($user['token']);
+        // enc_key may still be null for accounts that predate this feature;
+        // getOrCreateEncKey() lazily generates and persists one on first read.
+        $user['enc_key'] = $user->getOrCreateEncKey();
         $userService = new UserService();
         $user['reset_day'] = $userService->getResetDay($user);
         $user = HookManager::filter('user.subscribe.response', $user);
@@ -166,6 +173,7 @@ class UserController extends Controller
         $user = $request->user();
         $user->uuid = Helper::guid(true);
         $user->token = Helper::guid();
+        $user->enc_key = base64_encode(random_bytes(32));
         if (!$user->save()) {
             return $this->fail([400, __('Reset failed')]);
         }
@@ -219,5 +227,60 @@ class UserController extends Controller
 
         $url = $this->loginService->generateQuickLoginUrl($user, $request->input('redirect'));
         return $this->success($url);
+    }
+
+    public function cancelAccount(UserCancelAccount $request)
+    {
+        $user = $request->user();
+
+        if ($user->is_admin) {
+            return $this->fail([400, __('Admin accounts cannot cancel themselves, please contact another administrator')]);
+        }
+
+        if (
+            !Helper::multiPasswordVerify(
+                $user->password_algo,
+                $user->password_salt,
+                $request->input('password'),
+                $user->password
+            )
+        ) {
+            return $this->fail([400, __('Incorrect password')]);
+        }
+
+        HookManager::call('user.account.cancel.before', [
+            'user' => $user,
+            'request' => $request,
+        ]);
+
+        try {
+            DB::transaction(function () use ($user) {
+                // Soft-cancel: disable login and anonymize PII, keep orders/tickets/stat
+                // intact for accounting and referral history.
+                $user->email = 'deleted_' . $user->id . '_' . time() . '@deleted.local';
+                $user->password = password_hash(Helper::guid(), PASSWORD_DEFAULT);
+                $user->password_algo = null;
+                $user->password_salt = null;
+                $user->banned = true;
+                $user->telegram_id = null;
+                $user->remarks = null;
+                $user->uuid = Helper::guid(true);
+                $user->token = Helper::guid();
+                if (!$user->save()) {
+                    throw new \Exception('Save failed');
+                }
+                $user->tokens()->delete();
+            });
+        } catch (\Exception $e) {
+            Log::error($e);
+            return $this->fail([500, __('Cancel failed')]);
+        }
+
+        HookManager::call('user.account.cancel.after', [
+            'user' => $user,
+            'request' => $request,
+        ]);
+
+        return $this->success(true);
     }
 }

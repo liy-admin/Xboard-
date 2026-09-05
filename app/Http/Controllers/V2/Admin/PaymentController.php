@@ -9,7 +9,9 @@ use App\Services\PaymentService;
 use App\Utils\Helper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
@@ -96,6 +98,47 @@ class PaymentController extends Controller
             return $this->fail([500, '保存失败']);
         }
         return $this->success(true);
+    }
+
+    public function uploadIcon(Request $request)
+    {
+        $request->validate([
+            'file' => [
+                'required',
+                'file',
+                'mimes:jpg,jpeg,png,gif,webp',
+                'max:2048', // 最大2MB
+            ]
+        ], [
+            'file.required' => '请选择图标文件',
+            'file.file' => '无效的文件类型',
+            'file.mimes' => '文件必须是 jpg/jpeg/png/gif/webp 格式',
+            'file.max' => '文件大小不能超过2MB',
+        ]);
+
+        $file = $request->file('file');
+        $uploadDir = public_path('uploads/payment');
+        if (!File::exists($uploadDir)) {
+            File::makeDirectory($uploadDir, 0755, true);
+        }
+        if (!is_writable($uploadDir)) {
+            throw new ApiException('上传目录无写入权限');
+        }
+
+        // Use MIME-derived extension, never trust client-supplied extension
+        $mimeExtMap = [
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/gif'  => 'gif',
+            'image/webp' => 'webp',
+        ];
+        $ext = $mimeExtMap[$file->getMimeType()] ?? 'jpg';
+        $filename = Str::random(32) . '.' . $ext;
+        $file->move($uploadDir, $filename);
+
+        $publicUrl = url('/uploads/payment/' . $filename);
+
+        return $this->success(['url' => $publicUrl]);
     }
 
     public function drop(Request $request)

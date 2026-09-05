@@ -79,10 +79,13 @@ class AppController extends Controller
             $data = [
                 'windows_version' => admin_setting('windows_version'),
                 'windows_download_url' => admin_setting('windows_download_url'),
+                'windows_force_update' => (bool) admin_setting('windows_force_update', 0),
                 'macos_version' => admin_setting('macos_version'),
                 'macos_download_url' => admin_setting('macos_download_url'),
+                'macos_force_update' => (bool) admin_setting('macos_force_update', 0),
                 'android_version' => admin_setting('android_version'),
-                'android_download_url' => admin_setting('android_download_url')
+                'android_download_url' => admin_setting('android_download_url'),
+                'android_force_update' => (bool) admin_setting('android_force_update', 0)
             ];
         }
         return $this->success($data);

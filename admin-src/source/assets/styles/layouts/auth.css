@@ -1,0 +1,9 @@
+.app-auth-shell {
+    min-height: 100svh;
+}
+
+.app-auth-shell__language {
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+}

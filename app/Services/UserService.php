@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Jobs\StatServerJob;
 use App\Jobs\StatUserJob;
 use App\Jobs\TrafficFetchJob;
+use App\Models\DeviceBinding;
 use App\Models\Order;
 use App\Models\Plan;
 use App\Models\Server;
@@ -174,6 +175,8 @@ class UserService
         $user->remind_expire = admin_setting('default_remind_expire', 1);
         $user->remind_traffic = admin_setting('default_remind_traffic', 1);
         $user->expired_at = null;
+        // 0 表示不限制设备数（沿用 device_limit 现有语义：null/0 均不做限制）
+        $user->device_limit = (int) admin_setting('default_device_limit', 4) ?: null;
 
         // 可选字段
         $this->setOptionalFields($user, $data);
@@ -182,7 +185,7 @@ class UserService
         if (isset($data['plan_id'])) {
             $this->setPlanForUser($user, $data['plan_id'], $data['expired_at'] ?? null);
         } else {
-            $this->setTryOutPlan(user: $user);
+            $this->setTryOutPlan(user: $user, deviceId: $data['device_id'] ?? null);
         }
 
         return $user;
@@ -199,7 +202,9 @@ class UserService
             'group_id',
             'speed_limit',
             'expired_at',
-            'transfer_enable'
+            'transfer_enable',
+            'device_limit',
+            'device_id',
         ];
 
         foreach ($optionalFields as $field) {
@@ -222,6 +227,7 @@ class UserService
         $user->group_id = $plan->group_id;
         $user->transfer_enable = $plan->transfer_enable * 1073741824;
         $user->speed_limit = $plan->speed_limit;
+        $user->device_limit = $plan->device_limit;
 
         if ($expiredAt) {
             $user->expired_at = $expiredAt;
@@ -261,17 +267,42 @@ class UserService
      */
     public function extendSubscription(User $user, int $days): User
     {
+        return $this->extendSubscriptionSeconds($user, $days * 86400);
+    }
+
+    /**
+     * 延长用户的订阅有效期（秒级精度，供按小时发放奖励的场景使用）
+     *
+     * @param User $user 用户模型
+     * @param int $seconds 延长秒数
+     * @return User 更新后的用户模型
+     */
+    public function extendSubscriptionSeconds(User $user, int $seconds): User
+    {
         $currentExpired = $user->expired_at ?? time();
-        $user->expired_at = max($currentExpired, time()) + ($days * 86400);
+        $user->expired_at = max($currentExpired, time()) + $seconds;
 
         return $user;
     }
 
     /**
      * 设置试用计划
+     *
+     * 通过 v2_device_binding.claimed_trial tag 判断是否已领取过试用：
+     * - claimed_trial = true → 已领取，不再发放
+     * - claimed_trial = false 或无记录 → 可以发放
+     * - 没带设备码 → 不发放（防止绕过设备去重）
      */
-    private function setTryOutPlan(User $user): void
+    private function setTryOutPlan(User $user, ?string $deviceId = null): void
     {
+        $deviceId = $deviceId !== null ? trim($deviceId) : '';
+        if ($deviceId === '')
+            return;
+
+        $binding = DeviceBinding::where('device_id', $deviceId)->first();
+        if ($binding && $binding->claimed_trial)
+            return;
+
         if (!(int) admin_setting('try_out_plan_id', 0))
             return;
 
@@ -284,5 +315,6 @@ class UserService
         $user->group_id = $plan->group_id;
         $user->expired_at = time() + (admin_setting('try_out_hour', 1) * 3600);
         $user->speed_limit = $plan->speed_limit;
+        $user->device_limit = $plan->device_limit;
     }
 }

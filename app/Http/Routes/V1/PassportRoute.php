@@ -3,6 +3,7 @@ namespace App\Http\Routes\V1;
 
 use App\Http\Controllers\V1\Passport\AuthController;
 use App\Http\Controllers\V1\Passport\CommController;
+use App\Http\Controllers\V1\Passport\DeviceTrialController;
 use Illuminate\Contracts\Routing\Registrar;
 
 class PassportRoute
@@ -19,6 +20,7 @@ class PassportRoute
             $router->post('/auth/forget', [AuthController::class, 'forget']);
             $router->post('/auth/getQuickLoginUrl', [AuthController::class, 'getQuickLoginUrl']);
             $router->post('/auth/loginWithMailLink', [AuthController::class, 'loginWithMailLink']);
+            $router->post('/auth/deviceTrial', [DeviceTrialController::class, 'claim']);
             // Comm
             $router->post('/comm/sendEmailVerify', [CommController::class, 'sendEmailVerify']);
             $router->post('/comm/pv', [CommController::class, 'pv']);

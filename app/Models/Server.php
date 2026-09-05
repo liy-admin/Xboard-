@@ -372,21 +372,26 @@ class Server extends Model
 
     public function generateServerPassword(User $user): string
     {
+        // A non-empty `code` means this node was imported from an upstream
+        // subscription/account and must authenticate with that account's UUID,
+        // not the local user's own UUID (see ManageController import notes).
+        $authUuid = $this->code ?: $user->uuid;
+
         if ($this->type !== self::TYPE_SHADOWSOCKS) {
-            return $user->uuid;
+            return $authUuid;
         }
 
 
         $cipher = data_get($this, 'protocol_settings.cipher');
         if (!$cipher || !isset(self::CIPHER_CONFIGURATIONS[$cipher])) {
-            return $user->uuid;
+            return $authUuid;
         }
 
         $config = self::CIPHER_CONFIGURATIONS[$cipher];
         // Use parent's created_at if this is a child node
         $serverCreatedAt = $this->parent_id ? $this->parent->created_at : $this->created_at;
         $serverKey = Helper::getServerKey($serverCreatedAt, $config['serverKeySize']);
-        $userKey = Helper::uuidToBase64($user->uuid, $config['userKeySize']);
+        $userKey = Helper::uuidToBase64($authUuid, $config['userKeySize']);
         return "{$serverKey}:{$userKey}";
     }
 

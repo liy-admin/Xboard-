@@ -1,10 +1,13 @@
 <?php
 namespace App\Http\Routes\V1;
 
+use App\Http\Controllers\V1\Guest\AdBannerController;
 use App\Http\Controllers\V1\Guest\CommController;
+use App\Http\Controllers\V1\Guest\DiscoverController;
 use App\Http\Controllers\V1\Guest\PaymentController;
 use App\Http\Controllers\V1\Guest\PlanController;
 use App\Http\Controllers\V1\Guest\TelegramController;
+use App\Http\Controllers\V1\User\NoticeController;
 use Illuminate\Contracts\Routing\Registrar;
 
 class GuestRoute
@@ -22,6 +25,12 @@ class GuestRoute
             $router->match(['get', 'post'], '/payment/notify/{method}/{uuid}', [PaymentController::class, 'notify']);
             // Comm
             $router->get('/comm/config', [CommController::class, 'config']);
+            // Discover
+            $router->get('/discover/config', [DiscoverController::class, 'config']);
+            // Ad banner
+            $router->get('/ad-banner/config', [AdBannerController::class, 'config']);
+            // Notice（公告无需认证）
+            $router->get('/notice/fetch', [NoticeController::class, 'fetch']);
         });
     }
 }

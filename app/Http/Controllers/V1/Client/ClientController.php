@@ -33,11 +33,28 @@ class ClientController extends Controller
 
     public function subscribe(Request $request)
     {
+        // Plaintext subscription output retired: this deployment only serves
+        // hiddify-app, which now fetches node data exclusively through the
+        // encrypted subscribeEncrypted() endpoint below. Keeping this route
+        // reachable would let anyone holding a subscribe link read the raw
+        // per-node uuid/password by simply requesting a different `flag`,
+        // which defeats the point of encrypting the other endpoint.
+        return response('', 403, ['Content-Type' => 'text/plain']);
+    }
+
+    /**
+     * Same node data as subscribe(), but returned as an AES-256-GCM encrypted
+     * envelope instead of plaintext. Key = SHA-256(user's enc_key), which is
+     * only ever handed out over Bearer-authenticated endpoints (login,
+     * getSubscribe) and never appears in this (token-authenticated) URL, so a
+     * leaked subscribe link alone is not enough to decrypt the payload.
+     */
+    public function subscribeEncrypted(Request $request)
+    {
         HookManager::call('client.subscribe.before');
         $request->validate([
             'types' => ['nullable', 'string'],
             'filter' => ['nullable', 'string'],
-            'flag' => ['nullable', 'string'],
         ]);
 
         $user = $request->user();
@@ -48,7 +65,27 @@ class ClientController extends Controller
             return response('', 403, ['Content-Type' => 'text/plain']);
         }
 
-        return $this->doSubscribe($request, $user);
+        // Force sing-box output regardless of caller-supplied flag/User-Agent:
+        // this endpoint only exists to feed hiddify-app's decryptor, which
+        // expects a native sing-box config, not clash/surge/etc.
+        $request->merge(['flag' => 'sing-box']);
+        $plaintext = $this->doSubscribe($request, $user)->getContent();
+
+        $key = hash('sha256', $user->getOrCreateEncKey(), true);
+        $nonce = random_bytes(12);
+        $tag = '';
+        $ciphertext = openssl_encrypt($plaintext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $nonce, $tag);
+        if ($ciphertext === false) {
+            return response('', 500, ['Content-Type' => 'text/plain']);
+        }
+
+        return response()->json([
+            'v' => 1,
+            'alg' => 'aes-256-gcm',
+            'n' => base64_encode($nonce),
+            'c' => base64_encode($ciphertext),
+            't' => base64_encode($tag),
+        ]);
     }
 
     public function doSubscribe(Request $request, $user, $servers = null)

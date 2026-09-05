@@ -54,7 +54,7 @@ class ServerService
      */
     public static function getAvailableServers(User $user): array
     {
-        $servers = Server::whereJsonContains('group_ids', (string) $user->group_id)
+        $servers = Server::whereJsonContains('group_ids', (int) $user->group_id)
             ->where('show', true)
             ->where(function ($query) {
                 $query->whereNull('transfer_enable')
@@ -80,6 +80,21 @@ class ServerService
         })->toArray();
 
         return $servers;
+    }
+
+    /**
+     * 计算一组节点的「版本号」。
+     *
+     * 基于每个节点的 cache_key（见 Server::cacheKey，内含 updated_at 与
+     * is_online），所以新增/删除节点、修改节点配置、节点上下线都会让它变化。
+     *
+     * 客户端用它判断"要不要重新下载订阅"（ServerController::revision）、
+     * fetch 接口用它做 ETag、管理端用它统计更新覆盖率——三处必须共用同一个
+     * 实现，任何一处算法漂移都会造成漏更新或统计对不上。
+     */
+    public static function calcNodeRevision(array $servers): string
+    {
+        return sha1(json_encode(array_column($servers, 'cache_key')));
     }
 
     /**
@@ -404,6 +419,9 @@ class ServerService
      */
     public static function getServer($serverId, ?string $serverType = null): Server | null
     {
+        // `code` is not guaranteed unique per type (e.g. imported nodes may share
+        // one proxy account's UUID across several servers), so when several rows
+        // match this returns an arbitrary one of them.
         return Server::query()
             ->when($serverType, function ($query) use ($serverType) {
                 $query->where('type', Server::normalizeType($serverType));

@@ -26,6 +26,7 @@ class NoticeController extends Controller
             'title',
             'content',
             'img_url',
+            'url',
             'tags',
             'show',
             'popup'

@@ -120,10 +120,38 @@ class Helper
         }
     }
 
+    /**
+     * hiddify-app 专用：加密节点下发端点的订阅链接。不要把这个当成
+     * getSubscribeUrl() 的通用替代——Surge/Surfboard 的自更新链接、后台管理
+     * 页展示的订阅链接等仍然需要走明文格式的 client.subscribe 路由，只有
+     * hiddify-app 自己消费的 subscribe_url 字段才应该指向这里。
+     */
+    public static function getEncryptedSubscribeUrl(string $token, $subscribeUrl = null)
+    {
+        $path = route('client.subscribe.enc', ['token' => $token], false);
+
+        if ($subscribeUrl) {
+            $finalUrl = rtrim($subscribeUrl, '/') . $path;
+            return HookManager::filter('subscribe.url', $finalUrl);
+        }
+
+        $urlString = (string)admin_setting('subscribe_url', '');
+        $subscribeUrlList = $urlString ? explode(',', $urlString) : [];
+
+        if (empty($subscribeUrlList)) {
+            return HookManager::filter('subscribe.url', url($path));
+        }
+
+        $selectedUrl = self::replaceByPattern(Arr::random($subscribeUrlList));
+        $finalUrl = rtrim($selectedUrl, '/') . $path;
+
+        return HookManager::filter('subscribe.url', $finalUrl);
+    }
+
     public static function getSubscribeUrl(string $token, $subscribeUrl = null)
     {
         $path = route('client.subscribe', ['token' => $token], false);
-        
+
         if ($subscribeUrl) {
             $finalUrl = rtrim($subscribeUrl, '/') . $path;
             return HookManager::filter('subscribe.url', $finalUrl);

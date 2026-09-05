@@ -103,6 +103,19 @@ class RegisterService
     }
 
     /**
+     * 处理"填写推荐码"这种推荐方式（app 端"推荐有奖"用的是这个，不是
+     * 邀请码）。跟 [handleInviteCode] 是两条独立的推荐入口，谁填了都认。
+     *
+     * @param string $referralCode 推荐人的 6 位推荐码（[ReferralController::assignReferralCode]）
+     * @return int|null 推荐人的用户 ID，推荐码不存在时返回 null（不阻断注册）
+     */
+    public function handleReferralCode(string $referralCode): int|null
+    {
+        $referrer = User::where('referral_code', $referralCode)->first();
+        return $referrer?->id;
+    }
+
+    /**
      * 处理邀请码
      *
      * @param string $inviteCode 邀请码
@@ -150,11 +163,15 @@ class RegisterService
         $email = $request->input('email');
         $password = $request->input('password');
         $inviteCode = $request->input('invite_code');
+        $referralCode = $request->input('referral_code');
 
-        // 处理邀请码获取邀请人ID
+        // 处理邀请人：优先邀请码（历史行为，可能带强制校验），没有邀请码
+        // 但填了推荐码的话走那条路径。
         $inviteUserId = null;
         if ($inviteCode) {
             $inviteUserId = $this->handleInviteCode($inviteCode);
+        } elseif ($referralCode) {
+            $inviteUserId = $this->handleReferralCode((string) $referralCode);
         }
 
         // 创建用户
@@ -163,6 +180,7 @@ class RegisterService
             'email' => $email,
             'password' => $password,
             'invite_user_id' => $inviteUserId,
+            'device_id' => $request->input('device_id'),
         ]);
 
         // 保存用户

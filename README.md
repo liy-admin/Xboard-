@@ -88,6 +88,24 @@ This project is currently under light maintenance. We will:
 
 However, new feature development may be limited.
 
+## 🔑 Reset Admin Password
+
+If you forgot the admin password, use the built-in artisan command:
+
+**Docker deployment:**
+```bash
+docker compose exec xboard php artisan reset:password admin@demo.com newpassword123
+```
+
+**Local / aaPanel deployment:**
+```bash
+php artisan reset:password admin@demo.com newpassword123
+```
+
+- Replace `admin@demo.com` with the actual admin email
+- Replace `newpassword123` with the new password (min 8 characters)
+- If the password argument is omitted, you will be prompted to enter it interactively
+
 ## 🔔 Important Notes
 
 1. Restart required after modifying admin path:

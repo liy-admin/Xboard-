@@ -209,6 +209,22 @@ class OrderService
         } else {
             $order->commission_balance = $order->total_amount * (admin_setting('invite_commission', 10) / 100);
         }
+
+        // 推荐时长奖励：跟金额佣金同一个"是否有效推荐"判定（$isCommission），
+        // 只是单位换成"这笔订单周期的百分比时长"而不是金额——按后台配置的
+        // referral_duration_percent（默认 20%）算，只对有固定周期的套餐生效
+        // （一次性/流量重置包没有周期概念，不产生时长奖励）。
+        $periodKey = PlanService::getPeriodKey($order->period);
+        $months = self::STR_TO_TIME[$periodKey] ?? 0;
+        $periodSeconds = match (true) {
+            $months > 0 => Carbon::now()->diffInSeconds(Carbon::now()->addMonths($months)),
+            $periodKey === Plan::PERIOD_WEEKLY => Carbon::now()->diffInSeconds(Carbon::now()->addWeek()),
+            default => 0,
+        };
+        if ($periodSeconds > 0) {
+            $percent = (float) admin_setting('referral_duration_percent', 20);
+            $order->referral_duration_seconds = (int) round($periodSeconds * ($percent / 100));
+        }
     }
 
     private function haveValidOrder(User $user): Order|null
@@ -257,9 +273,12 @@ class OrderService
             }
 
             $orderAmountSum = $orders->sum(fn($item) => $item->total_amount + $item->balance_amount + $item->surplus_amount - $item->surplus_credit);
-            $orderMonthSum = $orders->sum(fn($item) => self::STR_TO_TIME[PlanService::getPeriodKey($item->period)] ?? 0);
+            $orderDaySum = $orders->sum(function ($item) {
+                $periodKey = PlanService::getPeriodKey($item->period);
+                return Plan::isValidPeriod($periodKey) ? max(0, Plan::getPeriodDays($periodKey)) : 0;
+            });
             $firstOrderAt = $orders->min('created_at');
-            $expiredAt = Carbon::createFromTimestamp($firstOrderAt)->addMonths($orderMonthSum);
+            $expiredAt = Carbon::createFromTimestamp($firstOrderAt)->addDays($orderDaySum);
 
             $now = now();
             $totalSeconds = $expiredAt->timestamp - $firstOrderAt;
@@ -267,7 +286,7 @@ class OrderService
             $cycleRatio = $totalSeconds > 0 ? $remainSeconds / $totalSeconds : 0;
 
             $plan = Plan::find($user->plan_id);
-            $totalTraffic = $plan?->transfer_enable * $orderMonthSum;
+            $totalTraffic = $plan?->transfer_enable * ($orderDaySum / 30);
             $usedTraffic = Helper::transferToGB($user->u + $user->d);
             $remainTraffic = max(0, $totalTraffic - $usedTraffic);
             $trafficRatio = $totalTraffic > 0 ? $remainTraffic / $totalTraffic : 0;
@@ -377,6 +396,10 @@ class OrderService
         if (isset(self::STR_TO_TIME[$periodKey])) {
             $months = self::STR_TO_TIME[$periodKey];
             return Carbon::createFromTimestamp($timestamp)->addMonths($months)->timestamp;
+        }
+
+        if ($periodKey === Plan::PERIOD_WEEKLY) {
+            return Carbon::createFromTimestamp($timestamp)->addWeek()->timestamp;
         }
 
         throw new ApiException('无效的套餐周期');

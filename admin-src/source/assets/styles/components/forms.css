@@ -1,0 +1,14 @@
+.app-field-error {
+    min-height: 1rem;
+}
+
+.app-password-field {
+    position: relative;
+}
+
+.app-password-field__toggle {
+    position: absolute;
+    right: 0.25rem;
+    top: 50%;
+    transform: translateY(-50%);
+}

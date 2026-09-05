@@ -10,11 +10,24 @@ use Illuminate\Http\Request;
 
 class TicketController extends Controller
 {
+    private const ALLOWED_FILTER_COLUMNS = [
+        'id', 'user_id', 'subject', 'level', 'status', 'reply_status',
+        'created_at', 'updated_at',
+    ];
+
+    private const ALLOWED_SORT_COLUMNS = [
+        'id', 'user_id', 'level', 'status', 'reply_status',
+        'created_at', 'updated_at',
+    ];
+
     private function applyFiltersAndSorts(Request $request, $builder)
     {
         if ($request->has('filter')) {
             collect($request->input('filter'))->each(function ($filter) use ($builder) {
                 $key = $filter['id'];
+                if (!in_array($key, self::ALLOWED_FILTER_COLUMNS, true)) {
+                    return;
+                }
                 $value = $filter['value'];
                 $builder->where(function ($query) use ($key, $value) {
                     if (is_array($value)) {
@@ -29,6 +42,9 @@ class TicketController extends Controller
         if ($request->has('sort')) {
             collect($request->input('sort'))->each(function ($sort) use ($builder) {
                 $key = $sort['id'];
+                if (!in_array($key, self::ALLOWED_SORT_COLUMNS, true)) {
+                    return;
+                }
                 $value = $sort['desc'] ? 'DESC' : 'ASC';
                 $builder->orderBy($key, $value);
             });

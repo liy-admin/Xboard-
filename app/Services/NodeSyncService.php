@@ -39,7 +39,7 @@ class NodeSyncService
      */
     public static function notifyUsersUpdatedByGroup(int $groupId): void
     {
-        $servers = Server::whereJsonContains('group_ids', (string) $groupId)
+        $servers = Server::whereJsonContains('group_ids', (int) $groupId)
             ->get();
 
         foreach ($servers as $server) {
@@ -59,7 +59,7 @@ class NodeSyncService
         if (!$user->group_id)
             return;
 
-        $servers = Server::whereJsonContains('group_ids', (string) $user->group_id)->get();
+        $servers = Server::whereJsonContains('group_ids', (int) $user->group_id)->get();
         foreach ($servers as $server) {
             if (!self::isNodeOnline($server->id))
                 continue;
@@ -90,7 +90,7 @@ class NodeSyncService
      */
     public static function notifyUserRemovedFromGroup(int $userId, int $groupId): void
     {
-        $servers = Server::whereJsonContains('group_ids', (string) $groupId)
+        $servers = Server::whereJsonContains('group_ids', (int) $groupId)
             ->get();
 
         foreach ($servers as $server) {

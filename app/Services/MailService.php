@@ -312,7 +312,6 @@ class MailService
             'subject' => $params['subject'],
             'template_name' => $params['template_name'],
             'error' => $error,
-            'config' => config('mail')
         ];
         MailLog::create($log);
         return $log;

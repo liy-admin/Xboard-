@@ -1,0 +1,8 @@
+{
+    "name": "BEpusdt",
+    "code": "bepusdt",
+    "type": "payment",
+    "version": "1.0.0",
+    "description": "BEpusdt USDT crypto payment plugin",
+    "author": "XBoard Team"
+}

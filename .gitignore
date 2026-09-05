@@ -26,9 +26,13 @@ storage/update_pending
 storage/laravels-timer-process.pid
 cli-php.ini
 frontend
+/admin-src/source/node_modules
 docker-compose.yaml
 bun.lockb
 compose.yaml
 compose.host.yaml
 compose.split.yaml
 .scribe
+**/caddy
+frankenphp
+frankenphp-worker.php

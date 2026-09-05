@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\CommissionLog;
+use App\Models\ReferralDurationLog;
 use Illuminate\Console\Command;
 use App\Models\Order;
 use App\Models\User;
@@ -102,26 +103,45 @@ class CheckCommission extends Command
             if (!$inviter) continue;
             if (!isset($commissionShareLevels[$l])) continue;
             $commissionBalance = $order->commission_balance * ($commissionShareLevels[$l] / 100);
-            if (!$commissionBalance) continue;
-            if ((int)admin_setting('withdraw_close_enable', 0)) {
-                $inviter->increment('balance', $commissionBalance);
-            } else {
-                $inviter->increment('commission_balance', $commissionBalance);
+            if ($commissionBalance) {
+                if ((int)admin_setting('withdraw_close_enable', 0)) {
+                    $inviter->increment('balance', $commissionBalance);
+                } else {
+                    $inviter->increment('commission_balance', $commissionBalance);
+                }
+                if (!$inviter->save()) {
+                    DB::rollBack();
+                    return false;
+                }
+                CommissionLog::create([
+                    'invite_user_id' => $inviteUserId,
+                    'user_id' => $order->user_id,
+                    'trade_no' => $order->trade_no,
+                    'order_amount' => $order->total_amount,
+                    'get_amount' => $commissionBalance
+                ]);
+                // update order actual commission balance
+                $order->actual_commission_balance = $order->actual_commission_balance + $commissionBalance;
             }
-            if (!$inviter->save()) {
-                DB::rollBack();
-                return false;
+
+            // 推荐时长奖励：只发给直接推荐人（l === 0），不像金额佣金那样按
+            // L1/L2/L3 逐级往上分——"薅时长"这个玩法本来就是奖励第一手推荐，
+            // 不需要多级分销那么复杂。
+            if ($l === 0 && $order->referral_duration_seconds) {
+                $inviter->expired_at = max($inviter->expired_at ?? time(), time()) + $order->referral_duration_seconds;
+                if (!$inviter->save()) {
+                    DB::rollBack();
+                    return false;
+                }
+                ReferralDurationLog::create([
+                    'inviter_id' => $inviteUserId,
+                    'invitee_id' => $order->user_id,
+                    'trade_no' => $order->trade_no,
+                    'seconds_credited' => $order->referral_duration_seconds,
+                ]);
             }
-            CommissionLog::create([
-                'invite_user_id' => $inviteUserId,
-                'user_id' => $order->user_id,
-                'trade_no' => $order->trade_no,
-                'order_amount' => $order->total_amount,
-                'get_amount' => $commissionBalance
-            ]);
+
             $inviteUserId = $inviter->invite_user_id;
-            // update order actual commission balance
-            $order->actual_commission_balance = $order->actual_commission_balance + $commissionBalance;
         }
         return true;
     }

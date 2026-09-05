@@ -17,7 +17,7 @@
     <tr><td style="background:#ffffff;border-radius:12px;border:1px solid #e4e4e7;padding:40px;">
         <table width="100%" cellpadding="0" cellspacing="0">
             <tr><td style="font-size:22px;font-weight:700;color:#18181b;padding-bottom:8px;">网站通知</td></tr>
-            <tr><td style="font-size:15px;color:#52525b;line-height:1.7;padding-bottom:28px;">{!! nl2br($content) !!}</td></tr>
+            <tr><td style="font-size:15px;color:#52525b;line-height:1.7;padding-bottom:28px;">{!! nl2br(e($content)) !!}</td></tr>
             <tr><td align="center">
                 <a href="{{$url}}" style="display:inline-block;background:#18181b;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:8px;">前往查看</a>
             </td></tr>

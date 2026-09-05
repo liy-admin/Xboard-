@@ -538,6 +538,16 @@ class PluginManager
             throw new \Exception('无法打开插件包文件');
         }
 
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $entry = $zip->getNameIndex($i);
+            // Normalize the entry path to detect traversal sequences
+            $normalized = str_replace(['\\', "\0"], ['/', ''], $entry);
+            if (str_contains($normalized, '../') || str_starts_with($normalized, '/')) {
+                $zip->close();
+                throw new \Exception('插件包含非法路径条目，拒绝解压');
+            }
+        }
+
         $zip->extractTo($extractPath);
         $zip->close();
 

@@ -16,6 +16,7 @@ class NodeResource extends JsonResource
     {
         return [
             'id' => $this['id'],
+            'code' => $this['code'] ?? null,
             'type' => $this['type'],
             'version' => $this['version'] ?? null,
             'name' => $this['name'],

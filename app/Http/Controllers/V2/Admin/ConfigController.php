@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\V2\Admin;
 
+use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ConfigSave;
 use App\Models\SubscribeTemplate;
@@ -10,6 +11,8 @@ use App\Services\TelegramService;
 use App\Services\ThemeService;
 use App\Utils\Dict;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 
 class ConfigController extends Controller
 {
@@ -101,7 +104,35 @@ class ConfigController extends Controller
                 'commission_distribution_enable' => (bool) admin_setting('commission_distribution_enable', 0),
                 'commission_distribution_l1' => admin_setting('commission_distribution_l1'),
                 'commission_distribution_l2' => admin_setting('commission_distribution_l2'),
-                'commission_distribution_l3' => admin_setting('commission_distribution_l3')
+                'commission_distribution_l3' => admin_setting('commission_distribution_l3'),
+                'referral_headline' => admin_setting('referral_headline', '推荐朋友，领永久会员'),
+                'referral_subtext' => admin_setting(
+                    'referral_subtext',
+                    '好友安装快连后，填写您的推荐码(:code)即算推荐成功；当其每次获得会员，您均可薅取 :percent% 的时长！永久有效！'
+                ),
+                'referral_duration_percent' => admin_setting('referral_duration_percent', 20),
+            ],
+            'lucky_draw' => [
+                'lucky_draw_enabled' => (bool) admin_setting('lucky_draw_enabled', 1),
+                'lucky_draw_cooldown_seconds' => (int) admin_setting('lucky_draw_cooldown_seconds', 3600),
+                'lucky_draw_reward_hours' => (int) admin_setting('lucky_draw_reward_hours', 1),
+                'lucky_draw_daily_target_winners' => (int) admin_setting('lucky_draw_daily_target_winners', 500),
+                'lucky_draw_min_probability_percent' => (float) admin_setting('lucky_draw_min_probability_percent', 1),
+                'lucky_draw_max_probability_percent' => (float) admin_setting('lucky_draw_max_probability_percent', 50),
+            ],
+            'discover' => [
+                'discover_connected_page_url' => admin_setting('discover_connected_page_url'),
+                'discover_prompt_image_url' => admin_setting('discover_prompt_image_url'),
+                'discover_prompt_badge_text' => admin_setting('discover_prompt_badge_text'),
+                'discover_prompt_body' => admin_setting('discover_prompt_body'),
+                'discover_prompt_button_text' => admin_setting('discover_prompt_button_text'),
+                'discover_prompt_cancel_text' => admin_setting('discover_prompt_cancel_text'),
+            ],
+            'ad_banner' => [
+                'ad_banner_enabled' => (bool) admin_setting('ad_banner_enabled', 0),
+                'ad_banner_image_url' => admin_setting('ad_banner_image_url', ''),
+                'ad_banner_click_url' => admin_setting('ad_banner_click_url', ''),
+                'ad_banner_countdown_seconds' => (int) admin_setting('ad_banner_countdown_seconds', 5),
             ],
             'site' => [
                 'logo' => admin_setting('logo'),
@@ -113,6 +144,7 @@ class ConfigController extends Controller
                 'subscribe_url' => admin_setting('subscribe_url'),
                 'try_out_plan_id' => (int) admin_setting('try_out_plan_id', 0),
                 'try_out_hour' => (int) admin_setting('try_out_hour', 1),
+                'default_device_limit' => (int) admin_setting('default_device_limit', 4),
                 'tos_url' => admin_setting('tos_url'),
                 'currency' => admin_setting('currency', 'CNY'),
                 'currency_symbol' => admin_setting('currency_symbol', '¥'),
@@ -164,10 +196,13 @@ class ConfigController extends Controller
             'app' => [
                 'windows_version' => admin_setting('windows_version', ''),
                 'windows_download_url' => admin_setting('windows_download_url', ''),
+                'windows_force_update' => (bool) admin_setting('windows_force_update', 0),
                 'macos_version' => admin_setting('macos_version', ''),
                 'macos_download_url' => admin_setting('macos_download_url', ''),
+                'macos_force_update' => (bool) admin_setting('macos_force_update', 0),
                 'android_version' => admin_setting('android_version', ''),
-                'android_download_url' => admin_setting('android_download_url', '')
+                'android_download_url' => admin_setting('android_download_url', ''),
+                'android_force_update' => (bool) admin_setting('android_force_update', 0)
             ],
             'safe' => [
                 'email_verify' => (bool) admin_setting('email_verify', 0),
@@ -234,6 +269,50 @@ class ConfigController extends Controller
         }
 
         return $this->success(true);
+    }
+
+    /**
+     * 上传"大家都在玩"已连接状态展示的静态 HTML 文件。
+     *
+     * 客户端不再用任何平台 WebView 渲染这个页面，而是把 HTML 文本拉下来
+     * 用纯 Flutter 控件解析展示，所以这里存的必须是不依赖 JS 的静态页面。
+     * 上传成功后直接把生成的公网 URL 写入 discover_connected_page_url，
+     * 管理员不需要再手动复制粘贴。
+     *
+     * @throws ApiException
+     */
+    public function uploadDiscoverHtml(Request $request)
+    {
+        $request->validate([
+            'file' => [
+                'required',
+                'file',
+                'mimes:html,htm,txt',
+                'max:2048', // 最大2MB
+            ]
+        ], [
+            'file.required' => '请选择HTML文件',
+            'file.file' => '无效的文件类型',
+            'file.mimes' => '文件必须是 .html 格式',
+            'file.max' => '文件大小不能超过2MB',
+        ]);
+
+        $file = $request->file('file');
+        $uploadDir = public_path('uploads/discover');
+        if (!File::exists($uploadDir)) {
+            File::makeDirectory($uploadDir, 0755, true);
+        }
+        if (!is_writable($uploadDir)) {
+            throw new ApiException('上传目录无写入权限');
+        }
+
+        $filename = Str::random(32) . '.html';
+        $file->move($uploadDir, $filename);
+
+        $publicUrl = url('/uploads/discover/' . $filename);
+        admin_setting(['discover_connected_page_url' => $publicUrl]);
+
+        return $this->success(['url' => $publicUrl]);
     }
 
     /**

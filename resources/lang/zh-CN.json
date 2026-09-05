@@ -1,5 +1,7 @@
 {
     "The user does not exist": "该用户不存在",
+    "This feature is not available": "该功能暂未开放",
+    "Please try again later": "请稍后再试",
     "The old password is wrong": "旧密码有误",
     "Save failed": "保存失败",
     "Subscription plan does not exist": "订阅计划不存在",

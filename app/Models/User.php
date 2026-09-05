@@ -9,6 +9,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Log;
 
 /**
  * App\Models\User
@@ -20,6 +21,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $password_salt 加密盐
  * @property string $token 邀请码
  * @property string $uuid
+ * @property string|null $enc_key 加密订阅节点数据用的账号级密钥（base64，惰性生成）
+ * @property string|null $node_revision 客户端最近上报的已同步节点集版本号
+ * @property int|null $node_revision_at 上报时间
  * @property int|null $invite_user_id 邀请人
  * @property int|null $plan_id 订阅ID
  * @property int|null $group_id 权限组ID
@@ -96,6 +100,36 @@ class User extends Authenticatable
     public function scopeByEmail(Builder $query, string $email): Builder
     {
         return $query->where('email', strtolower(trim($email)));
+    }
+
+    /**
+     * 加密订阅节点数据用的账号级密钥，惰性生成并落库，避免逐个入口补种。
+     * 只通过需要 Bearer 鉴权的接口下发（登录响应、getSubscribe），绝不出现在
+     * 任何订阅 URL 或明文订阅内容里。
+     *
+     * 落库失败时降级返回空串而不是抛出：本方法被 AuthService::generateAuthData()
+     * 调用，而后者是登录/注册的必经之路——一旦抛出，整个认证功能都会瘫痪。更糟的是
+     * 注册流程里账户在此之前就已提交入库（见 AuthController::register），异常会留下
+     * 一个"已注册但拿不到 token"的孤儿账号。典型触发场景是新代码已部署但
+     * `php artisan migrate` 还没跑，enc_key 列尚不存在。降级的代价仅仅是加密订阅
+     * 暂时不可用（客户端会提示等待刷新或重新登录），比登录挂掉轻得多。
+     */
+    public function getOrCreateEncKey(): string
+    {
+        if (!empty($this->enc_key)) {
+            return $this->enc_key;
+        }
+        try {
+            $this->enc_key = base64_encode(random_bytes(32));
+            $this->save();
+            return $this->enc_key;
+        } catch (\Throwable $e) {
+            // 回滚这次在内存里的赋值，否则同一请求后续任何 save() 都会带上这个
+            // 不存在的列、继续报同样的错。
+            unset($this->attributes['enc_key']);
+            Log::warning('failed to persist enc_key for user ' . $this->id . ': ' . $e->getMessage());
+            return '';
+        }
     }
 
     // 获取邀请人信息

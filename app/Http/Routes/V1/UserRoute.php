@@ -3,9 +3,12 @@ namespace App\Http\Routes\V1;
 
 use App\Http\Controllers\V1\User\CommController;
 use App\Http\Controllers\V1\User\CouponController;
+use App\Http\Controllers\V1\User\DeviceController;
+use App\Http\Controllers\V1\User\ReferralController;
 use App\Http\Controllers\V1\User\GiftCardController;
 use App\Http\Controllers\V1\User\InviteController;
 use App\Http\Controllers\V1\User\KnowledgeController;
+use App\Http\Controllers\V1\User\LuckyDrawController;
 use App\Http\Controllers\V1\User\NoticeController;
 use App\Http\Controllers\V1\User\OrderController;
 use App\Http\Controllers\V1\User\PlanController;
@@ -36,6 +39,7 @@ class UserRoute
             $router->post('/getQuickLoginUrl', [UserController::class, 'getQuickLoginUrl']);
             $router->get('/getActiveSession', [UserController::class, 'getActiveSession']);
             $router->post('/removeActiveSession', [UserController::class, 'removeActiveSession']);
+            $router->post('/cancelAccount', [UserController::class, 'cancelAccount']);
             // Order
             $router->post('/order/save', [OrderController::class, 'save']);
             $router->post('/order/checkout', [OrderController::class, 'checkout']);
@@ -60,6 +64,16 @@ class UserRoute
             $router->post('/ticket/withdraw', [TicketController::class, 'withdraw']);
             // Server
             $router->get('/server/fetch', [ServerController::class, 'fetch']);
+            $router->get('/server/revision', [ServerController::class, 'revision']);
+            $router->post('/server/synced', [ServerController::class, 'synced']);
+            // Device
+            $router->get('/devices/fetch', [DeviceController::class, 'fetch']);
+            $router->post('/devices/kick', [DeviceController::class, 'kick']);
+            // Referral（推荐有奖，时长奖励；跟 Invite 的邀请码/佣金是两套独立入口）
+            $router->get('/referral/info', [ReferralController::class, 'info']);
+            // Lucky Draw（免费领会员抽奖）
+            $router->get('/lucky_draw/info', [LuckyDrawController::class, 'info']);
+            $router->post('/lucky_draw/claim', [LuckyDrawController::class, 'claim']);
             // Coupon
             $router->post('/coupon/check', [CouponController::class, 'check']);
             // Gift Card

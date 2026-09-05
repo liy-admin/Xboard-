@@ -146,6 +146,48 @@ class DeviceStateService
     }
 
     /**
+     * 获取某用户当前所有未过期的设备条目（供用户自助查看/管理使用）。
+     * 返回 [{node_id, ip, last_seen}, ...]。
+     */
+    public function getUserDevices(int $userId): array
+    {
+        $data = Redis::hgetall(self::PREFIX . $userId);
+        $now = time();
+        $result = [];
+
+        foreach ($data as $field => $timestamp) {
+            if ($now - $timestamp > self::TTL) {
+                continue;
+            }
+            [$nodeId, $ip] = explode(':', $field, 2);
+            $result[] = [
+                'node_id' => (int) $nodeId,
+                'ip' => $ip,
+                'last_seen' => (int) $timestamp,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * 移除某用户在某节点上的单个设备 IP（用户自助"踢出设备"）。
+     *
+     * 注意：这只是把该 IP 从 Redis 追踪表里删除，让节点在下一次校验设备数
+     * 时不再把它算进占用——如果该节点确实实现了 device_limit 校验，效果是
+     * 腾出一个名额给新设备登录，但并不会主动断开这个 IP 当前已建立的连接
+     * （面板和代理节点之间没有可以强制断线的接口）。而且如果这个 IP 此刻
+     * 仍在该节点上活跃，节点下一次 /alive 上报会重新把它写回来
+     * （见 [setDevices] 里 report 会整节点覆盖）。
+     */
+    public function removeDevice(int $userId, int $nodeId, string $ip): void
+    {
+        $key = self::PREFIX . $userId;
+        Redis::hdel($key, "{$nodeId}:{$ip}");
+        $this->notifyUpdate($userId);
+    }
+
+    /**
      * get devices of multiple users (for sync.devices, filter expired data)
      */
     public function getUsersDevices(array $userIds): array
@@ -184,6 +226,22 @@ class DeviceStateService
             return $m[1];
         }
         return $ip;
+    }
+
+    /**
+     * 获取所有当前在线用户（online_count > 0 且 last_online_at 在 TTL 内）
+     */
+    public function getOnlineUsers(): array
+    {
+        $threshold = now()->subSeconds(self::TTL);
+
+        return User::query()
+            ->where('online_count', '>', 0)
+            ->where('last_online_at', '>=', $threshold)
+            ->get(['id', 'online_count'])
+            ->map(fn($u) => ['user_id' => $u->id, 'device_count' => $u->online_count])
+            ->values()
+            ->toArray();
     }
 
     /**

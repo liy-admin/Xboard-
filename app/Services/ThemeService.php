@@ -110,9 +110,18 @@ class ThemeService
                 throw new Exception('Invalid theme package');
             }
 
-            $configEntry = collect(range(0, $zip->numFiles - 1))
-                ->map(fn($i) => $zip->getNameIndex($i))
-                ->first(fn($name) => basename($name) === self::CONFIG_FILE);
+            $entries = collect(range(0, $zip->numFiles - 1))
+                ->map(fn($i) => $zip->getNameIndex($i));
+
+            foreach ($entries as $entry) {
+                $normalized = str_replace(['\\', "\0"], ['/', ''], $entry);
+                if (str_contains($normalized, '../') || str_starts_with($normalized, '/')) {
+                    $zip->close();
+                    throw new Exception('Invalid path entry in theme package');
+                }
+            }
+
+            $configEntry = $entries->first(fn($name) => basename($name) === self::CONFIG_FILE);
 
             if (!$configEntry) {
                 throw new Exception('Theme config file not found');

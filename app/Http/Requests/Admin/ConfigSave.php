@@ -21,6 +21,26 @@ class ConfigSave extends FormRequest
         'commission_distribution_l1' => 'nullable|numeric',
         'commission_distribution_l2' => 'nullable|numeric',
         'commission_distribution_l3' => 'nullable|numeric',
+        'referral_headline' => 'nullable',
+        'referral_subtext' => 'nullable',
+        'referral_duration_percent' => 'nullable|numeric|min:0|max:100',
+        // discover
+        // 两个地址字段用宽松的 'nullable'（不加 url 校验）：设置页是逐字符
+        // 自动保存的，若用 'url' 规则，用户还没打完整个网址时每次按键都会
+        // 触发 422 校验失败，导致这一批（同一次请求里的全部 discover_*
+        // 字段）整体保存不了，且前端没有把校验错误提示出来，看起来就是
+        // "无法保存"。
+        'discover_connected_page_url' => 'nullable',
+        'discover_prompt_image_url' => 'nullable',
+        'discover_prompt_badge_text' => 'nullable',
+        'discover_prompt_body' => 'nullable',
+        'discover_prompt_button_text' => 'nullable',
+        'discover_prompt_cancel_text' => 'nullable',
+        // ad banner
+        'ad_banner_enabled' => 'boolean',
+        'ad_banner_image_url' => 'nullable|url',
+        'ad_banner_click_url' => 'nullable|url',
+        'ad_banner_countdown_seconds' => 'integer|nullable|min:1|max:60',
         // site
         'logo' => 'nullable|url',
         'force_https' => '',
@@ -32,6 +52,7 @@ class ConfigSave extends FormRequest
         'try_out_enable' => '',
         'try_out_plan_id' => 'integer',
         'try_out_hour' => 'numeric',
+        'default_device_limit' => 'integer|nullable|min:0',
         'tos_url' => 'nullable|url',
         'currency' => '',
         'currency_symbol' => '',
@@ -77,10 +98,13 @@ class ConfigSave extends FormRequest
         // app
         'windows_version' => '',
         'windows_download_url' => '',
+        'windows_force_update' => 'boolean',
         'macos_version' => '',
         'macos_download_url' => '',
+        'macos_force_update' => 'boolean',
         'android_version' => '',
         'android_download_url' => '',
+        'android_force_update' => 'boolean',
         // safe
         'email_whitelist_enable' => 'boolean',
         'email_whitelist_suffix' => 'nullable|array',
@@ -111,7 +135,14 @@ class ConfigSave extends FormRequest
         'subscribe_template_clashmeta' => 'nullable',
         'subscribe_template_stash' => 'nullable',
         'subscribe_template_surge' => 'nullable',
-        'subscribe_template_surfboard' => 'nullable'
+        'subscribe_template_surfboard' => 'nullable',
+        // lucky draw
+        'lucky_draw_enabled' => 'boolean',
+        'lucky_draw_cooldown_seconds' => 'integer|nullable|min:0',
+        'lucky_draw_reward_hours' => 'integer|nullable|min:0',
+        'lucky_draw_daily_target_winners' => 'integer|nullable|min:0',
+        'lucky_draw_min_probability_percent' => 'numeric|nullable|min:0|max:100',
+        'lucky_draw_max_probability_percent' => 'numeric|nullable|min:0|max:100',
     ];
     /**
      * Get the validation rules that apply to the request.

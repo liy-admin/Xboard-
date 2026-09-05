@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ServerSave;
 use App\Models\Server;
 use App\Models\ServerGroup;
+use App\Models\User;
+use App\Services\ProxyParserService;
 use App\Services\ServerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -73,6 +75,193 @@ class ManageController extends Controller
             Log::error($e);
             return $this->fail([500, '创建失败']);
         }
+    }
+
+    /**
+     * 解析代理链接或订阅地址，返回预览结果（不写库）。
+     */
+    public function parseNodes(Request $request)
+    {
+        $params = $request->validate([
+            'type'    => 'required|in:links,subscription',
+            'content' => 'required_if:type,links|nullable|string|max:500000',
+            'url'     => 'required_if:type,subscription|nullable|url|max:2048',
+        ]);
+
+        $parser = new ProxyParserService();
+
+        $parsed = $params['type'] === 'links'
+            ? $parser->parseFromText($params['content'] ?? '')
+            : $parser->parseFromSubscription($params['url'] ?? '');
+
+        $servers = array_map(function ($s, $i) {
+            return [
+                'index'   => $i,
+                'success' => true,
+                'type'    => $s['type'] ?? null,
+                'code'    => $s['code'] ?? null,
+                'name'    => $s['name'] ?? null,
+                'host'    => $s['host'] ?? null,
+                'port'    => $s['port'] ?? null,
+            ];
+        }, $parsed['servers'], array_keys($parsed['servers']));
+
+        return $this->success([
+            'servers'      => $servers,
+            'parse_errors' => $parsed['errors'],
+        ]);
+    }
+
+    /**
+     * 批量添加节点
+     * 接受 servers 数组，每个元素结构与 save 接口一致（不含 id 字段）。
+     * 返回每条记录的处理结果，事务回滚只影响单条失败记录，其余继续插入。
+     */
+    public function batchSave(Request $request)
+    {
+        $request->validate([
+            'servers'   => 'required|array|min:1|max:100',
+            'servers.*' => 'array',
+        ]);
+
+        $list    = $request->input('servers');
+        $results = [];
+        $created = 0;
+        $failed  = 0;
+
+        foreach ($list as $index => $serverData) {
+            // 基础字段校验
+            $type = $serverData['type'] ?? null;
+            if (!Server::isValidType($type)) {
+                $results[] = ['index' => $index, 'success' => false, 'error' => "type 不合法: {$type}"];
+                $failed++;
+                continue;
+            }
+
+            $required = ['name', 'host', 'port', 'server_port', 'rate'];
+            foreach ($required as $field) {
+                if (!isset($serverData[$field]) || $serverData[$field] === '') {
+                    $results[] = ['index' => $index, 'success' => false, 'error' => "{$field} 不能为空"];
+                    $failed++;
+                    continue 2;
+                }
+            }
+
+            // 不允许通过批量接口更新已有节点
+            unset($serverData['id']);
+
+            try {
+                $server    = Server::create($serverData);
+                $results[] = ['index' => $index, 'success' => true, 'id' => $server->id, 'name' => $server->name];
+                $created++;
+            } catch (\Exception $e) {
+                Log::error('batchSave server error', ['index' => $index, 'error' => $e->getMessage()]);
+                $results[] = ['index' => $index, 'success' => false, 'error' => '创建失败: ' . $e->getMessage()];
+                $failed++;
+            }
+        }
+
+        return $this->success([
+            'created' => $created,
+            'failed'  => $failed,
+            'results' => $results,
+        ]);
+    }
+
+    /**
+     * 从剪切板内容或订阅链接批量导入节点。
+     *
+     * type=links   : content 为多行代理 URI 文本（vmess/vless/trojan/ss/hysteria2/tuic）
+     * type=subscription : url 为订阅地址，自动抓取并解析
+     *
+     * defaults 可覆盖所有导入节点的公共字段（group_ids / route_ids / rate / show / tags）。
+     */
+    public function batchImport(Request $request)
+    {
+        $params = $request->validate([
+            'type'              => 'required|in:links,subscription',
+            'content'           => 'required_if:type,links|nullable|string|max:500000',
+            'url'               => 'required_if:type,subscription|nullable|url|max:2048',
+            'defaults'          => 'nullable|array',
+            'defaults.group_ids'=> 'nullable|array',
+            'defaults.group_ids.*' => 'integer',
+            'defaults.route_ids'=> 'nullable|array',
+            'defaults.route_ids.*' => 'integer',
+            'defaults.rate'     => 'nullable|numeric|min:0',
+            'defaults.show'     => 'nullable|integer|in:0,1',
+            'defaults.tags'     => 'nullable|array',
+        ]);
+
+        $parser = new ProxyParserService();
+
+        if ($params['type'] === 'links') {
+            $parsed = $parser->parseFromText($params['content'] ?? '');
+        } else {
+            $parsed = $parser->parseFromSubscription($params['url'] ?? '');
+        }
+
+        $defaults    = $params['defaults'] ?? [];
+        $parseErrors = $parsed['errors'];
+        $results     = [];
+        $created     = 0;
+        $failed      = 0;
+
+        foreach ($parsed['servers'] as $index => $serverData) {
+            // `code` is intentionally not unique: links from the same subscription
+            // commonly share one auth UUID across many nodes (it identifies the
+            // account, not the node), and the caller wants that UUID preserved as
+            // the custom node ID on every node that carries it.
+
+            // Merge caller-supplied defaults; caller wins on group_ids/route_ids/tags/rate/show
+            if (!empty($defaults['group_ids'])) {
+                $serverData['group_ids'] = $defaults['group_ids'];
+            }
+            if (!empty($defaults['route_ids'])) {
+                $serverData['route_ids'] = $defaults['route_ids'];
+            }
+            if (!empty($defaults['tags'])) {
+                $serverData['tags'] = $defaults['tags'];
+            }
+            if (array_key_exists('rate', $defaults) && $defaults['rate'] !== null) {
+                $serverData['rate'] = $defaults['rate'];
+            }
+            $serverData['show'] = (int) ($defaults['show'] ?? 0);
+
+            // Never carry over an id from parsed data
+            unset($serverData['id']);
+
+            try {
+                $server = Server::create($serverData);
+                $results[] = [
+                    'index'   => $index,
+                    'success' => true,
+                    'id'      => $server->id,
+                    'name'    => $server->name,
+                    'type'    => $server->type,
+                ];
+                $created++;
+            } catch (\Exception $e) {
+                Log::error('batchImport server error', [
+                    'index' => $index,
+                    'name'  => $serverData['name'] ?? '',
+                    'error' => $e->getMessage(),
+                ]);
+                $results[] = [
+                    'index'   => $index,
+                    'success' => false,
+                    'name'    => $serverData['name'] ?? '',
+                    'error'   => '创建失败: ' . $e->getMessage(),
+                ];
+                $failed++;
+            }
+        }
+
+        return $this->success([
+            'created'      => $created,
+            'failed'       => $failed,
+            'parse_errors' => $parseErrors,
+            'results'      => $results,
+        ]);
     }
 
     public function update(Request $request)
@@ -336,6 +525,54 @@ class ManageController extends Controller
         return $this->success([
             'key' => $keyPem,
             'config' => $configPem,
+        ]);
+    }
+
+    /**
+     * 节点变更的客户端覆盖情况统计。
+     *
+     * 每个权限组能看到的节点集不同（getAvailableServers 按 group_id 过滤），
+     * 版本号也就不同，所以不能拿一个全局版本号去比——必须按组分别算出当前
+     * 版本号，再统计该组里有多少人已经上报同步到了这个版本。
+     */
+    public function syncStats(Request $request)
+    {
+        // 注意：max() 是查询构造器聚合，绕过模型的 timestamp cast，拿到的是
+        // 数据库里的原始值。v2_server.updated_at 存的是 'Y-m-d H:i:s' 字符串，
+        // 直接 (int) 强转会得到年份（"2026-08-30 ..." → 2026），前端就会显示成
+        // 1970 年。这里显式按实际格式转换，并兼容存成 unix 时间戳的部署。
+        $rawLastChange = Server::max('updated_at');
+        $lastChangeAt = null;
+        if ($rawLastChange !== null && $rawLastChange !== '') {
+            $lastChangeAt = is_numeric($rawLastChange)
+                ? (int) $rawLastChange
+                : strtotime((string) $rawLastChange);
+            if ($lastChangeAt === false) {
+                $lastChangeAt = null;
+            }
+        }
+
+        $groupIds = User::whereNotNull('group_id')->distinct()->pluck('group_id');
+        $synced = 0;
+        foreach ($groupIds as $groupId) {
+            // 只需要一个能代表"该组可见哪些节点"的探针用户即可；cache_key 不含
+            // 用户相关字段，所以这里不需要真实用户（uuid 仅用于满足
+            // generateServerPassword 的调用，不参与版本号计算）。
+            $probe = new User(['group_id' => $groupId, 'uuid' => '00000000-0000-0000-0000-000000000000']);
+            $revision = ServerService::calcNodeRevision(ServerService::getAvailableServers($probe));
+            $synced += User::where('group_id', $groupId)
+                ->where('node_revision', $revision)
+                ->count();
+        }
+
+        return $this->success([
+            // 已经同步到各自权限组当前最新节点集的用户数
+            'synced' => $synced,
+            // 曾经上报过的用户数：与 total 的差值就是"还在用不支持上报的旧客户端"，
+            // 不区分开的话会把老客户端误算成"没更新"
+            'reported' => User::whereNotNull('node_revision')->count(),
+            'total' => User::count(),
+            'last_node_change_at' => $lastChangeAt,
         ]);
     }
 }

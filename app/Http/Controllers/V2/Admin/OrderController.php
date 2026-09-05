@@ -69,6 +69,19 @@ class OrderController extends Controller
         $this->applySorting($request, $builder);
     }
 
+    private const ALLOWED_FILTER_COLUMNS = [
+        'id', 'invite_user_id', 'user_id', 'plan_id', 'coupon_id', 'payment_id',
+        'type', 'period', 'trade_no', 'total_amount', 'handling_amount',
+        'discount_amount', 'surplus_amount', 'refund_amount', 'balance_amount',
+        'status', 'commission_status', 'commission_balance', 'paid_at',
+        'created_at', 'updated_at',
+    ];
+
+    private const ALLOWED_SORT_COLUMNS = [
+        'id', 'user_id', 'plan_id', 'type', 'period', 'total_amount',
+        'status', 'commission_status', 'paid_at', 'created_at', 'updated_at',
+    ];
+
     private function applyFilters(Request $request, Builder $builder): void
     {
         if (!$request->has('filter')) {
@@ -77,6 +90,9 @@ class OrderController extends Controller
 
         collect($request->input('filter'))->each(function ($filter) use ($builder) {
             $field = $filter['id'];
+            if (!in_array($field, self::ALLOWED_FILTER_COLUMNS, true)) {
+                return;
+            }
             $value = $filter['value'];
 
             $builder->where(function ($query) use ($field, $value) {
@@ -135,6 +151,9 @@ class OrderController extends Controller
 
         collect($request->input('sort'))->each(function ($sort) use ($builder) {
             $field = $sort['id'];
+            if (!in_array($field, self::ALLOWED_SORT_COLUMNS, true)) {
+                return;
+            }
             $direction = $sort['desc'] ? 'DESC' : 'ASC';
             $builder->orderBy($field, $direction);
         });

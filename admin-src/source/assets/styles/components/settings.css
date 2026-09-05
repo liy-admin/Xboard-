@@ -1,0 +1,62 @@
+
+/* Settings page parity fixes */
+.settings-nav-icon {
+    display: block;
+    flex-shrink: 0;
+}
+
+.tooltip-content {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.5rem);
+    z-index: 80;
+    width: max-content;
+    max-width: min(18rem, calc(100vw - 2rem));
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    box-shadow:
+        0 10px 15px -3px rgb(0 0 0 / 0.1),
+        0 4px 6px -4px rgb(0 0 0 / 0.1);
+    animation: tooltip-in 0.12s ease-out;
+}
+
+.tooltip-content p {
+    margin: 0;
+}
+
+@keyframes tooltip-in {
+    from {
+        opacity: 0;
+        transform: translateY(0.25rem) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.settings-switch {
+    background-color: hsl(var(--input));
+}
+
+.settings-switch[data-state="checked"] {
+    background-color: hsl(var(--primary));
+}
+
+.settings-switch-thumb {
+    background-color: hsl(var(--background));
+    transform: translateX(0);
+}
+
+.settings-switch-thumb[data-state="checked"] {
+    transform: translateX(1rem);
+}
+
+.settings-switch-thumb[data-state="unchecked"] {
+    transform: translateX(0);
+}

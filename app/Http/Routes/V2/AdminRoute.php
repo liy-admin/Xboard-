@@ -20,6 +20,7 @@ use App\Http\Controllers\V2\Admin\PaymentController;
 use App\Http\Controllers\V2\Admin\SystemController;
 use App\Http\Controllers\V2\Admin\ThemeController;
 use App\Http\Controllers\V2\Admin\TrafficResetController;
+use App\Http\Controllers\V2\Admin\ReferralController;
 use Illuminate\Contracts\Routing\Registrar;
 
 class AdminRoute
@@ -40,6 +41,7 @@ class AdminRoute
                 $router->get('/getThemeTemplate', [ConfigController::class, 'getThemeTemplate']);
                 $router->post('/setTelegramWebhook', [ConfigController::class, 'setTelegramWebhook']);
                 $router->post('/testSendMail', [ConfigController::class, 'testSendMail']);
+                $router->post('/uploadDiscoverHtml', [ConfigController::class, 'uploadDiscoverHtml']);
             });
 
             // Mail Templates
@@ -84,11 +86,15 @@ class AdminRoute
                 'prefix' => 'server/manage'
             ], function ($router) {
                 $router->get('/getNodes', [ManageController::class, 'getNodes']);
+                $router->get('/syncStats', [ManageController::class, 'syncStats']);
                 $router->post('/update', [ManageController::class, 'update']);
                 $router->post('/save', [ManageController::class, 'save']);
                 $router->post('/drop', [ManageController::class, 'drop']);
                 $router->post('/copy', [ManageController::class, 'copy']);
                 $router->post('/sort', [ManageController::class, 'sort']);
+                $router->post('/parseNodes', [ManageController::class, 'parseNodes']);
+                $router->post('/batchSave', [ManageController::class, 'batchSave']);
+                $router->post('/batchImport', [ManageController::class, 'batchImport']);
                 $router->post('/batchDelete', [ManageController::class, 'batchDelete']);
                 $router->post('/batchUpdate', [ManageController::class, 'batchUpdate']);
                 $router->post('/resetTraffic', [ManageController::class, 'resetTraffic']);
@@ -136,6 +142,16 @@ class AdminRoute
                 $router->post('/resetSecret', [UserController::class, 'resetSecret']);
                 $router->post('/setInviteUser', [UserController::class, 'setInviteUser']);
                 $router->post('/destroy', [UserController::class, 'destroy']);
+                $router->get('/getOnlineUsers', [UserController::class, 'getOnlineUsers']);
+            });
+
+            // Referral（推荐有奖，时长奖励——跟 setInviteUser/commission 那套邀请码
+            // 佣金系统是独立数据，单开一组）
+            $router->group([
+                'prefix' => 'referral'
+            ], function ($router) {
+                $router->get('/summary', [ReferralController::class, 'summary']);
+                $router->get('/records', [ReferralController::class, 'records']);
             });
 
             // Stat
@@ -234,6 +250,7 @@ class AdminRoute
                 $router->post('/drop', [PaymentController::class, 'drop']);
                 $router->post('/show', [PaymentController::class, 'show']);
                 $router->post('/sort', [PaymentController::class, 'sort']);
+                $router->post('/uploadIcon', [PaymentController::class, 'uploadIcon']);
             });
 
             // System

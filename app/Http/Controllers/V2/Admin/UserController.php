@@ -10,6 +10,7 @@ use App\Jobs\SendEmailJob;
 use App\Models\Plan;
 use App\Models\User;
 use App\Services\AuthService;
+use App\Services\DeviceStateService;
 use App\Services\NodeSyncService;
 use App\Services\Plugin\HookManager;
 use App\Services\UserService;
@@ -26,6 +27,21 @@ use Illuminate\Support\Facades\Log;
 class UserController extends Controller
 {
     use QueryOperators;
+
+    private const ALLOWED_SORT_COLUMNS = [
+        'id', 'email', 'created_at', 'expired_at', 'balance',
+        'commission_balance', 'plan_id', 'transfer_enable',
+        'u', 'd', 'last_login_at', 'is_admin', 'banned',
+    ];
+
+    private const ALLOWED_FILTER_COLUMNS = [
+        'id', 'email', 'plan_id', 'group_id', 'transfer_enable',
+        'expired_at', 'created_at', 'balance', 'commission_balance',
+        'is_admin', 'banned', 'invite_by_id', 'last_login_at',
+        'total_used',
+    ];
+
+    private const ALLOWED_RELATIONS = ['plan', 'invite_user', 'group'];
 
     public function resetSecret(Request $request)
     {
@@ -85,7 +101,10 @@ class UserController extends Controller
             if (!method_exists($query, 'whereHas')) {
                 return;
             }
-            [$relation, $relationField] = explode('.', $field);
+            [$relation, $relationField] = explode('.', $field, 2);
+            if (!in_array($relation, self::ALLOWED_RELATIONS, true)) {
+                return;
+            }
             $query->whereHas($relation, function ($q) use ($relationField, $value) {
                 if (is_array($value)) {
                     $q->whereIn($relationField, $value);
@@ -96,6 +115,10 @@ class UserController extends Controller
                     $q->where($relationField, 'like', "%{$value}%");
                 }
             });
+            return;
+        }
+
+        if (!in_array($field, self::ALLOWED_FILTER_COLUMNS, true)) {
             return;
         }
 
@@ -138,6 +161,9 @@ class UserController extends Controller
 
         collect($request->input('sort'))->each(function ($sort) use ($builder) {
             $field = $sort['id'];
+            if (!in_array($field, self::ALLOWED_SORT_COLUMNS, true)) {
+                return;
+            }
             $direction = $sort['desc'] ? 'DESC' : 'ASC';
             $builder->orderBy($field, $direction);
         });
@@ -210,6 +236,7 @@ class UserController extends Controller
         $user['balance'] = $user['balance'] / 100;
         $user['commission_balance'] = $user['commission_balance'] / 100;
         $user['subscribe_url'] = Helper::getSubscribeUrl($user['token']);
+        $user['device_id'] = $model->device_id;
         return HookManager::filter('admin.user.transform', $user, $model);
     }
 
@@ -263,12 +290,6 @@ class UserController extends Controller
         if (isset($params['banned']) && (int) $params['banned'] === 1) {
             $authService = new AuthService($user);
             $authService->removeAllSessions();
-        }
-        if (isset($params['balance'])) {
-            $params['balance'] = $params['balance'] * 100;
-        }
-        if (isset($params['commission_balance'])) {
-            $params['commission_balance'] = $params['commission_balance'] * 100;
         }
 
         $params = HookManager::filter('admin.user.update.params', $params, $request, $user);
@@ -589,7 +610,8 @@ class UserController extends Controller
         }
 
         $sortType = in_array($request->input('sort_type'), ['ASC', 'DESC']) ? $request->input('sort_type') : 'DESC';
-        $sort = $request->input('sort') ? $request->input('sort') : 'created_at';
+        $sortInput = $request->input('sort');
+        $sort = in_array($sortInput, self::ALLOWED_SORT_COLUMNS, true) ? $sortInput : 'created_at';
 
         $builder = User::query()
             ->with('plan:id,name')
@@ -659,7 +681,8 @@ class UserController extends Controller
         }
 
         $sortType = in_array($request->input('sort_type'), ['ASC', 'DESC']) ? $request->input('sort_type') : 'DESC';
-        $sort = $request->input('sort') ? $request->input('sort') : 'created_at';
+        $sortInput = $request->input('sort');
+        $sort = in_array($sortInput, self::ALLOWED_SORT_COLUMNS, true) ? $sortInput : 'created_at';
 
         $builder = User::query()->orderBy('id', 'desc');
 
@@ -718,5 +741,39 @@ class UserController extends Controller
             Log::error($e);
             return $this->fail([500, '删除失败']);
         }
+    }
+
+    public function getOnlineUsers(Request $request): JsonResponse
+    {
+        $deviceService = new DeviceStateService();
+        $onlineUsers = $deviceService->getOnlineUsers();
+
+        if (empty($onlineUsers)) {
+            return $this->success(['total' => 0, 'users' => []]);
+        }
+
+        $userIds = array_column($onlineUsers, 'user_id');
+        $users = User::whereIn('id', $userIds)
+            ->select(['id', 'email', 'device_limit', 'plan_id', 'expired_at'])
+            ->get()
+            ->keyBy('id');
+
+        $result = array_map(function ($item) use ($users) {
+            $user = $users[$item['user_id']] ?? null;
+            return [
+                'user_id'      => $item['user_id'],
+                'email'        => $user?->email ?? '—',
+                'device_count' => $item['device_count'],
+                'device_limit' => $user?->device_limit ?? 0,
+                'expired_at'   => $user?->expired_at,
+            ];
+        }, $onlineUsers);
+
+        usort($result, fn($a, $b) => $b['device_count'] <=> $a['device_count']);
+
+        return $this->success([
+            'total' => count($result),
+            'users' => $result,
+        ]);
     }
 }

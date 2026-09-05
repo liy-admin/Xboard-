@@ -11,6 +11,7 @@ use App\Services\Auth\LoginService;
 use App\Services\Auth\MailLinkService;
 use App\Services\Auth\RegisterService;
 use App\Services\AuthService;
+use App\Services\DeviceBindingService;
 use Illuminate\Http\Request;
 
 class AuthController extends Controller
@@ -62,8 +63,17 @@ class AuthController extends Controller
             return $this->fail($result);
         }
 
+        $deviceId = $request->input('device_id');
         $authService = new AuthService($result);
-        return $this->success($authService->generateAuthData());
+        if ($limitError = $authService->checkDeviceLimit($deviceId)) {
+            return $this->fail([403, $limitError]);
+        }
+        DeviceBindingService::bind($deviceId, $result);
+        if ($deviceId) {
+            $result->device_id = $deviceId;
+            $result->save();
+        }
+        return $this->success($authService->generateAuthData($request->input('device_name'), $deviceId));
     }
 
     /**
@@ -80,8 +90,17 @@ class AuthController extends Controller
             return $this->fail($result);
         }
 
+        $deviceId = $request->input('device_id');
         $authService = new AuthService($result);
-        return $this->success($authService->generateAuthData());
+        if ($limitError = $authService->checkDeviceLimit($deviceId)) {
+            return $this->fail([403, $limitError]);
+        }
+        DeviceBindingService::bind($deviceId, $result);
+        if ($deviceId) {
+            $result->device_id = $deviceId;
+            $result->save();
+        }
+        return $this->success($authService->generateAuthData($request->input('device_name'), $deviceId));
     }
 
     /**
