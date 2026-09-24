@@ -1852,13 +1852,18 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
       },
       "referral_subtext": {
         "title": "Mô tả trang Giới thiệu",
-        "description": "Hỗ trợ biến :code (mã giới thiệu) và :percent (tỷ lệ thưởng thời gian, cài đặt bên dưới).",
+        "description": "Hỗ trợ biến :code (mã giới thiệu), :percent (tỷ lệ thưởng thời gian, cài đặt bên dưới) và :url (liên kết chia sẻ).",
         "placeholder": "VD: Bạn bè nhập mã (:code) của bạn để thành công, bạn sẽ nhận :percent% thời gian sử dụng!"
       },
       "referral_duration_percent": {
         "title": "Tỷ lệ thưởng thời gian (%)",
         "description": "Phần trăm thời gian gói của người được giới thiệu mà bạn nhận được sau đơn hàng hợp lệ đầu tiên.",
         "placeholder": "Nhập phần trăm, VD: 20"
+      },
+      "referral_share_url": {
+        "title": "Liên kết chia sẻ (Trang chủ / Landing page / Tải ứng dụng)",
+        "description": "Hỗ trợ biến :code (mã giới thiệu). Để trống sẽ dùng mặc định Site URL + trang đăng ký web. Khi đã điền, liên kết này sẽ thay thế liên kết mặc định, có thể trỏ đến trang chủ, landing page riêng hoặc trang tải ứng dụng.",
+        "placeholder": "VD: https://your-site.com/download?ref=:code"
       },
       "saving": "Đang lưu..."
     },

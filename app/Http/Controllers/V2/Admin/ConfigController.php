@@ -111,6 +111,7 @@ class ConfigController extends Controller
                     '好友安装快连后，填写您的推荐码(:code)即算推荐成功；当其每次获得会员，您均可薅取 :percent% 的时长！永久有效！'
                 ),
                 'referral_duration_percent' => admin_setting('referral_duration_percent', 20),
+                'referral_share_url' => admin_setting('referral_share_url', ''),
             ],
             'lucky_draw' => [
                 'lucky_draw_enabled' => (bool) admin_setting('lucky_draw_enabled', 1),
@@ -127,6 +128,12 @@ class ConfigController extends Controller
                 'discover_prompt_body' => admin_setting('discover_prompt_body'),
                 'discover_prompt_button_text' => admin_setting('discover_prompt_button_text'),
                 'discover_prompt_cancel_text' => admin_setting('discover_prompt_cancel_text'),
+            ],
+            'support' => [
+                'support_chatwoot_enabled' => (bool) admin_setting('support_chatwoot_enabled', 0),
+                'support_chatwoot_base_url' => admin_setting('support_chatwoot_base_url', ''),
+                'support_chatwoot_website_token' => admin_setting('support_chatwoot_website_token', ''),
+                'support_chatwoot_locale' => admin_setting('support_chatwoot_locale', 'zh_CN'),
             ],
             'ad_banner' => [
                 'ad_banner_enabled' => (bool) admin_setting('ad_banner_enabled', 0),

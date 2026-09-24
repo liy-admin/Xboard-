@@ -17,6 +17,7 @@ const DEFAULTS = {
     withdraw_close_enable: false, commission_distribution_enable: false,
     commission_distribution_l1: 0, commission_distribution_l2: 0, commission_distribution_l3: 0,
     referral_headline: "", referral_subtext: "", referral_duration_percent: "0",
+    referral_share_url: "",
 };
 
 export function InviteSettings() {
@@ -102,6 +103,7 @@ export function InviteSettings() {
                 <FormField label={t("invite.referral_headline.title")} placeholder={t("invite.referral_headline.placeholder")} description={t("invite.referral_headline.description")} value={values.referral_headline ?? ""} onChange={(v) => setField("referral_headline", v)} />
                 <FormField as={Textarea} label={t("invite.referral_subtext.title")} placeholder={t("invite.referral_subtext.placeholder")} description={t("invite.referral_subtext.description")} value={values.referral_subtext ?? ""} onChange={(v) => setField("referral_subtext", v)} />
                 <FormField label={t("invite.referral_duration_percent.title")} placeholder={t("invite.referral_duration_percent.placeholder")} description={t("invite.referral_duration_percent.description")} value={values.referral_duration_percent ?? ""} onChange={(v) => setField("referral_duration_percent", v)} />
+                <FormField label={t("invite.referral_share_url.title")} placeholder={t("invite.referral_share_url.placeholder")} description={t("invite.referral_share_url.description")} value={values.referral_share_url ?? ""} onChange={(v) => setField("referral_share_url", v)} />
             </div>
             <hr className="my-6" />
             <ReferralRecordsPanel />

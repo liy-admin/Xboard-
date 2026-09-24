@@ -24,6 +24,10 @@ class ConfigSave extends FormRequest
         'referral_headline' => 'nullable',
         'referral_subtext' => 'nullable',
         'referral_duration_percent' => 'nullable|numeric|min:0|max:100',
+        // 自定义分享链接（可含 :code 占位符），跟 discover_* 一样用宽松的
+        // 'nullable'，不加 url 校验：逐字符自动保存时用户还没打完整个网址
+        // 加 url 规则会导致每次按键都 422，整批保存失败。
+        'referral_share_url' => 'nullable',
         // discover
         // 两个地址字段用宽松的 'nullable'（不加 url 校验）：设置页是逐字符
         // 自动保存的，若用 'url' 规则，用户还没打完整个网址时每次按键都会
@@ -37,6 +41,11 @@ class ConfigSave extends FormRequest
         'discover_prompt_button_text' => 'nullable',
         'discover_prompt_cancel_text' => 'nullable',
         // ad banner
+        // 客服（Chatwoot）接入配置，客户端通过加密接口读取
+        'support_chatwoot_enabled' => 'boolean',
+        'support_chatwoot_base_url' => 'nullable|url',
+        'support_chatwoot_website_token' => 'nullable|string|max:191',
+        'support_chatwoot_locale' => 'nullable|string|max:16',
         'ad_banner_enabled' => 'boolean',
         'ad_banner_image_url' => 'nullable|url',
         'ad_banner_click_url' => 'nullable|url',

@@ -2370,13 +2370,18 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       },
       "referral_subtext": {
         "title": "推荐页说明文案",
-        "description": "支持占位符 :code（推荐码）和 :percent（时长奖励比例，见下方设置）。",
+        "description": "支持占位符 :code（推荐码）、:percent（时长奖励比例，见下方设置）和 :url（分享链接）。",
         "placeholder": "如：好友安装后填写您的推荐码(:code)即算成功，您可获得 :percent% 的时长奖励！"
       },
       "referral_duration_percent": {
         "title": "推荐时长奖励比例(%)",
         "description": "好友完成一笔有效订单后，您获得的时长奖励占该订单周期的百分比。",
         "placeholder": "请输入百分比，如：20"
+      },
+      "referral_share_url": {
+        "title": "分享链接（官网/落地页/下载页）",
+        "description": "支持占位符 :code（推荐码）。留空则默认使用「站点网址」+ 网页版注册页；填写后将替代默认链接，可指向官网首页、专属落地页或 App 下载页。",
+        "placeholder": "如：https://your-site.com/download?ref=:code"
       },
       "referral_records": {
         "title": "推荐有奖记录",
@@ -2467,6 +2472,31 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "upload_html": "上传HTML文件",
       "uploading": "上传中...",
       "upload_error": "上传失败，请重试"
+    },
+    "support": {
+      "title": "在线客服",
+      "description": "客户端「在线客服」接入的自建 Chatwoot 配置。客户端通过加密接口读取，修改后下次打开客服页即生效，无需发版。",
+      "support_chatwoot_enabled": {
+        "title": "启用在线客服",
+        "description": "关闭后客户端的客服入口会提示「客服通道暂未开放」。"
+      },
+      "support_chatwoot_base_url": {
+        "title": "Chatwoot 地址",
+        "description": "自建 Chatwoot 的访问域名，需带 https://，结尾不用加斜杠。",
+        "placeholder": "https://chat.example.com"
+      },
+      "support_chatwoot_website_token": {
+        "title": "网站令牌（website token）",
+        "description": "Chatwoot「设置 → 收件箱 → 网站收件箱 → 配置」里嵌入代码中的 websiteToken，注意不是个人资料里的 API 访问令牌。",
+        "placeholder": "例如 TTs58ipw4892cbDsXdCSUJ5H"
+      },
+      "support_chatwoot_locale": {
+        "title": "客服窗口语言",
+        "description": "Chatwoot 的语言代码，中文填 zh_CN，英文填 en。",
+        "placeholder": "zh_CN"
+      },
+      "saving": "保存中...",
+      "save_error": "保存失败，请稍后重试"
     },
     "ad_banner": {
       "title": "启动页广告位",

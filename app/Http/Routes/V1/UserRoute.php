@@ -14,6 +14,7 @@ use App\Http\Controllers\V1\User\OrderController;
 use App\Http\Controllers\V1\User\PlanController;
 use App\Http\Controllers\V1\User\ServerController;
 use App\Http\Controllers\V1\User\StatController;
+use App\Http\Controllers\V1\User\SupportController;
 use App\Http\Controllers\V1\User\TelegramController;
 use App\Http\Controllers\V1\User\TicketController;
 use App\Http\Controllers\V1\User\UserController;
@@ -38,6 +39,8 @@ class UserRoute
             $router->post('/transfer', [UserController::class, 'transfer']);
             $router->post('/getQuickLoginUrl', [UserController::class, 'getQuickLoginUrl']);
             $router->get('/getActiveSession', [UserController::class, 'getActiveSession']);
+            // 在线客服接入配置（响应用账号 enc_key 加密，见 SupportController）
+            $router->get('/support/config', [SupportController::class, 'config']);
             $router->post('/removeActiveSession', [UserController::class, 'removeActiveSession']);
             $router->post('/cancelAccount', [UserController::class, 'cancelAccount']);
             // Order

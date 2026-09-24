@@ -26,10 +26,7 @@ class ReferralController extends Controller
             ->count('invitee_id');
         $totalSeconds = (int) ReferralDurationLog::where('inviter_id', $user->id)->sum('seconds_credited');
 
-        $appUrl = admin_setting('app_url');
-        $shareLink = $appUrl
-            ? rtrim($appUrl, '/') . '/#/register?referral_code=' . $code
-            : null;
+        $shareLink = $this->buildShareLink($code);
 
         return $this->success([
             'referral_code' => $code,
@@ -43,6 +40,26 @@ class ReferralController extends Controller
                 '好友安装快连后，填写您的推荐码(:code)即算推荐成功；当其每次获得会员，您均可薅取 :percent% 的时长！永久有效！'
             ),
         ]);
+    }
+
+    /**
+     * 分享链接优先用后台自定义的 referral_share_url（支持 :code 占位符，
+     * 方便直接指向官网/落地页/App 下载页而非固定的网页注册页）；没配置时
+     * 回退到旧逻辑：app_url + 网页版注册页。
+     */
+    private function buildShareLink(string $code): ?string
+    {
+        $template = admin_setting('referral_share_url');
+        if ($template) {
+            return str_contains($template, ':code')
+                ? str_replace(':code', $code, $template)
+                : $template;
+        }
+
+        $appUrl = admin_setting('app_url');
+        return $appUrl
+            ? rtrim($appUrl, '/') . '/#/register?referral_code=' . $code
+            : null;
     }
 
     /**

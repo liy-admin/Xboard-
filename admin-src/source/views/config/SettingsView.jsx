@@ -11,6 +11,7 @@ import { InviteSettings } from "./InviteSettings.jsx";
 import { LuckyDrawSettings } from "./LuckyDrawSettings.jsx";
 import { DiscoverSettings } from "./DiscoverSettings.jsx";
 import { AdBannerSettings } from "./AdBannerSettings.jsx";
+import { SupportSettings } from "./SupportSettings.jsx";
 import { FrontendSettings } from "./FrontendSettings.jsx";
 import { ServerSettings } from "./ServerSettings.jsx";
 import { EmailSettings } from "./EmailSettings.jsx";
@@ -26,6 +27,7 @@ const TAB_MAP = {
     "/config/system/lucky-draw": LuckyDrawSettings,
     "/config/system/discover": DiscoverSettings,
     "/config/system/ad-banner": AdBannerSettings,
+    "/config/system/support": SupportSettings,
     "/config/system/frontend": FrontendSettings,
     "/config/system/server": ServerSettings,
     "/config/system/email": EmailSettings,

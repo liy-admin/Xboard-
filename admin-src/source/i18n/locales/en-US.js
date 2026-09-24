@@ -1865,13 +1865,18 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       },
       "referral_subtext": {
         "title": "Referral Page Subtext",
-        "description": "Supports placeholders :code (referral code) and :percent (duration reward percent, set below).",
+        "description": "Supports placeholders :code (referral code), :percent (duration reward percent, set below), and :url (share link).",
         "placeholder": "e.g. Have a friend enter your code (:code) to succeed. You'll earn :percent% of their plan duration!"
       },
       "referral_duration_percent": {
         "title": "Referral Duration Reward (%)",
         "description": "Percentage of the invitee's plan duration you earn as a reward after their first valid order.",
         "placeholder": "Enter percentage, e.g. 20"
+      },
+      "referral_share_url": {
+        "title": "Share Link (Website / Landing Page / Download Page)",
+        "description": "Supports the :code placeholder (referral code). Leave blank to default to Site URL + web registration page. When set, this replaces the default link and can point to your homepage, a dedicated landing page, or an app download page.",
+        "placeholder": "e.g. https://your-site.com/download?ref=:code"
       },
       "referral_records": {
         "title": "Referral Reward Records",
@@ -1962,6 +1967,31 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "upload_html": "Upload HTML file",
       "uploading": "Uploading...",
       "upload_error": "Upload failed, please try again"
+    },
+    "support": {
+      "title": "Live Chat",
+      "description": "Self-hosted Chatwoot settings behind the client's live chat entry. The client reads them over an encrypted endpoint, so changes take effect on the next visit without a new release.",
+      "support_chatwoot_enabled": {
+        "title": "Enable live chat",
+        "description": "When off, the client's support entry shows a \"temporarily unavailable\" notice."
+      },
+      "support_chatwoot_base_url": {
+        "title": "Chatwoot URL",
+        "description": "Base URL of your Chatwoot instance, including https:// and without a trailing slash.",
+        "placeholder": "https://chat.example.com"
+      },
+      "support_chatwoot_website_token": {
+        "title": "Website token",
+        "description": "The websiteToken from Chatwoot's Settings -> Inboxes -> your website inbox -> Configuration snippet. Not the API access token from your profile.",
+        "placeholder": "e.g. TTs58ipw4892cbDsXdCSUJ5H"
+      },
+      "support_chatwoot_locale": {
+        "title": "Widget language",
+        "description": "Chatwoot locale code, e.g. zh_CN or en.",
+        "placeholder": "zh_CN"
+      },
+      "saving": "Saving...",
+      "save_error": "Save failed, please try again"
     },
     "ad_banner": {
       "title": "Startup ad banner",

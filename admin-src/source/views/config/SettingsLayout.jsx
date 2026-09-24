@@ -12,6 +12,7 @@ const SIDEBAR_ITEMS = [
     { key: "lucky_draw", href: "/config/system/lucky-draw", icon: "gift" },
     { key: "discover", href: "/config/system/discover", icon: "flame" },
     { key: "ad_banner", href: "/config/system/ad-banner", icon: "photo" },
+    { key: "support", href: "/config/system/support", icon: "headset" },
     { key: "server", href: "/config/system/server", icon: "server" },
     { key: "email", href: "/config/system/email", icon: "mail" },
     { key: "telegram", href: "/config/system/telegram", icon: "send" },
@@ -32,6 +33,7 @@ function SettingsIcon({ name, size = 18 }) {
         code: <><path d="M7 8l -4 4l4 4" /><path d="M17 8l4 4l -4 4" /></>,
         gift: <><rect x="3" y="8" width="18" height="4" rx="1" /><path d="M12 8l0 13" /><path d="M19 12v7a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-7" /><path d="M7.5 8a2.5 2.5 0 0 1 0 -5c1.5 0 3 1.5 4.5 5c1.5 -3.5 3 -5 4.5 -5a2.5 2.5 0 0 1 0 5" /></>,
         flame: <><path d="M12 12c2 -2.96 0 -7 -1 -8c0 3.038 -1.773 4.741 -3 6c-1.226 1.26 -2 3.24 -2 5c0 3.314 2.686 6 6 6s6 -2.686 6 -6c0 -1.26 -.472 -2.86 -1 -4c-1.5 3.5 -3 4.375 -4.999 4.999c0 .001 0 .001 0 .001z" /></>,
+        headset: <><path d="M4 14v-3a8 8 0 1 1 16 0v3" /><path d="M18 19c0 1.657 -2.686 3 -6 3" /><path d="M4 14a2 2 0 0 1 2 -2h1a1 1 0 0 1 1 1v5a1 1 0 0 1 -1 1h-1a2 2 0 0 1 -2 -2z" /><path d="M16 14a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-1a1 1 0 0 1 -1 -1v-5a1 1 0 0 1 1 -1" /></>,
         photo: <><path d="M15 8h.01" /><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></>,
     };
 
