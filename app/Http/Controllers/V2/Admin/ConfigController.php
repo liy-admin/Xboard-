@@ -38,8 +38,14 @@ class ConfigController extends Controller
 
     public function testSendMail(Request $request)
     {
+        $params = $request->validate([
+            'email' => 'nullable|email',
+        ], [
+            'email.email' => '收件邮箱格式不正确',
+        ]);
+
         $mailLog = MailService::sendEmail([
-            'email' => $request->user()->email,
+            'email' => $params['email'] ?? $request->user()->email,
             'subject' => 'This is xboard test email',
             'template_name' => 'notify',
             'template_value' => [
@@ -48,9 +54,27 @@ class ConfigController extends Controller
                 'url' => admin_setting('app_url')
             ]
         ]);
+        $mailLog['hint'] = $this->mailErrorHint($mailLog['error'] ?? null);
         return response([
             'data' => $mailLog,
         ]);
+    }
+
+    /**
+     * 把 SMTP 报错归类成前端可翻译的提示码，方便管理员判断是网络还是账号问题。
+     */
+    private function mailErrorHint(?string $error): ?string
+    {
+        if ($error === null || $error === '') {
+            return null;
+        }
+        return match (true) {
+            (bool) preg_match('/getaddrinfo|php_network_getaddresses|Name or service not known|resolve/i', $error) => 'dns',
+            (bool) preg_match('/timed out|timeout|Connection refused|could not be established|Network is unreachable/i', $error) => 'connect',
+            (bool) preg_match('/535|authenticat|Username and Password|credentials/i', $error) => 'auth',
+            (bool) preg_match('/SSL|TLS|certificate|crypto|wrong version/i', $error) => 'ssl',
+            default => 'unknown',
+        };
     }
     public function setTelegramWebhook(Request $request)
     {
@@ -128,6 +152,17 @@ class ConfigController extends Controller
                 'discover_prompt_body' => admin_setting('discover_prompt_body'),
                 'discover_prompt_button_text' => admin_setting('discover_prompt_button_text'),
                 'discover_prompt_cancel_text' => admin_setting('discover_prompt_cancel_text'),
+            ],
+            'anti_loss' => [
+                'anti_loss_qr_data' => admin_setting('anti_loss_qr_data', ''),
+                'anti_loss_qr_image_url' => admin_setting('anti_loss_qr_image_url', ''),
+                'anti_loss_qr_logo_url' => admin_setting('anti_loss_qr_logo_url', ''),
+                'anti_loss_title' => admin_setting('anti_loss_title', ''),
+                'anti_loss_body' => admin_setting('anti_loss_body', ''),
+                'anti_loss_save_button_text' => admin_setting('anti_loss_save_button_text', ''),
+                'anti_loss_saved_toast' => admin_setting('anti_loss_saved_toast', ''),
+                'anti_loss_follow_text' => admin_setting('anti_loss_follow_text', ''),
+                'anti_loss_socials' => admin_setting('anti_loss_socials', []),
             ],
             'support' => [
                 'support_chatwoot_enabled' => (bool) admin_setting('support_chatwoot_enabled', 0),
@@ -313,7 +348,9 @@ class ConfigController extends Controller
             throw new ApiException('上传目录无写入权限');
         }
 
-        $filename = Str::random(32) . '.html';
+        // Store as .txt so browsers won't execute inline scripts when the URL
+        // is opened directly. Clients fetch the file as plain text anyway.
+        $filename = Str::random(32) . '.txt';
         $file->move($uploadDir, $filename);
 
         $publicUrl = url('/uploads/discover/' . $filename);

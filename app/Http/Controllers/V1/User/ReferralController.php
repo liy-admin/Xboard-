@@ -51,6 +51,12 @@ class ReferralController extends Controller
     {
         $template = admin_setting('referral_share_url');
         if ($template) {
+            $scheme = strtolower(parse_url($template, PHP_URL_SCHEME) ?? '');
+            if (!in_array($scheme, ['http', 'https'], true)) {
+                $template = null;
+            }
+        }
+        if ($template) {
             return str_contains($template, ':code')
                 ? str_replace(':code', $code, $template)
                 : $template;

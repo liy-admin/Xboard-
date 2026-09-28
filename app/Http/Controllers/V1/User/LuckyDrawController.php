@@ -36,6 +36,11 @@ class LuckyDrawController extends Controller
     {
         $userId = $request->user()->id;
 
+        $lock = \Illuminate\Support\Facades\Cache::lock('lucky_draw:' . $userId, 10);
+        if (!$lock->get()) {
+            return $this->fail([429, __('Please try again later')]);
+        }
+
         try {
             $result = DB::transaction(function () use ($userId) {
                 if (!(bool) admin_setting('lucky_draw_enabled', 1)) {
@@ -94,6 +99,8 @@ class LuckyDrawController extends Controller
             });
         } catch (\Exception $e) {
             return $this->fail([400, $e->getMessage()]);
+        } finally {
+            $lock->release();
         }
 
         return $this->success($result);
