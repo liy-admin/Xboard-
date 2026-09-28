@@ -7,6 +7,7 @@ use App\Http\Requests\Passport\CommSendEmailVerify;
 use App\Jobs\SendEmailJob;
 use App\Models\InviteCode;
 use App\Models\User;
+use App\Services\Auth\EmailCodeService;
 use App\Services\CaptchaService;
 use App\Utils\CacheKey;
 use App\Utils\Helper;
@@ -40,10 +41,11 @@ class CommController extends Controller
             }
         }
 
+        $email = EmailCodeService::normalize($email);
         if (Cache::get(CacheKey::get('LAST_SEND_EMAIL_VERIFY_TIMESTAMP', $email))) {
             return $this->fail([400, __('Email verification code has been sent, please request again later')]);
         }
-        $code = rand(100000, 999999);
+        $code = app(EmailCodeService::class)->issue($email);
         $subject = admin_setting('app_name', 'XBoard') . __('Email verification code');
 
         SendEmailJob::dispatch([
@@ -57,7 +59,6 @@ class CommController extends Controller
             ]
         ]);
 
-        Cache::put(CacheKey::get('EMAIL_VERIFY_CODE', $email), $code, 300);
         Cache::put(CacheKey::get('LAST_SEND_EMAIL_VERIFY_TIMESTAMP', $email), time(), 60);
         return $this->success(true);
     }

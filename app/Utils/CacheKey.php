@@ -7,6 +7,7 @@ class CacheKey
     // 核心缓存键定义
     const CORE_KEYS = [
         'EMAIL_VERIFY_CODE' => '邮箱验证码',
+        'EMAIL_VERIFY_ATTEMPTS' => '邮箱验证码校验次数',
         'LAST_SEND_EMAIL_VERIFY_TIMESTAMP' => '最后一次发送邮箱验证码时间',
         'TEMP_TOKEN' => '临时令牌',
         'LAST_SEND_EMAIL_REMIND_TRAFFIC' => '最后发送流量邮件提醒',

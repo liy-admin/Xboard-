@@ -76,23 +76,36 @@ class Plugin extends AbstractPlugin implements PaymentInterface
         ];
     }
 
-    public function notify($params): array
+    public function notify($params): array|bool
     {
         $payload = trim(request()->getContent());
         $json_param = json_decode($payload, true);
 
-        $headerName = 'X-Cc-Webhook-Signature';
-        $headers = getallheaders();
-        $signatureHeader = isset($headers[$headerName]) ? $headers[$headerName] : '';
-        $computedSignature = \hash_hmac('sha256', $payload, $this->getConfig('coinbase_webhook_key'));
+        $webhookKey = (string) $this->getConfig('coinbase_webhook_key');
+        if ($webhookKey === '') {
+            throw new ApiException('Webhook key is not configured', 400);
+        }
+
+        $signatureHeader = (string) request()->header('X-CC-Webhook-Signature', '');
+        $computedSignature = \hash_hmac('sha256', $payload, $webhookKey);
 
         if (!$this->hashEqual($signatureHeader, $computedSignature)) {
             throw new ApiException('HMAC signature does not match', 400);
         }
 
-        $out_trade_no = $json_param['event']['data']['metadata']['outTradeNo'];
-        $pay_trade_no = $json_param['event']['id'];
-        
+        // Only a confirmed/resolved charge means money arrived; charge:created
+        // is signed too and is emitted as soon as the checkout page is opened.
+        $eventType = $json_param['event']['type'] ?? '';
+        if (!in_array($eventType, ['charge:confirmed', 'charge:resolved'], true)) {
+            return false;
+        }
+
+        $out_trade_no = $json_param['event']['data']['metadata']['outTradeNo'] ?? null;
+        $pay_trade_no = $json_param['event']['id'] ?? null;
+        if (!$out_trade_no || !$pay_trade_no) {
+            return false;
+        }
+
         return [
             'trade_no' => $out_trade_no,
             'callback_no' => $pay_trade_no

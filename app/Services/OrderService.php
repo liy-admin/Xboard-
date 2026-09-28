@@ -307,11 +307,22 @@ class OrderService
         $order = $this->order;
         if ($order->status !== Order::STATUS_PENDING)
             return true;
-        $order->status = Order::STATUS_PROCESSING;
-        $order->paid_at = time();
-        $order->callback_no = $callbackNo;
-        if (!$order->save())
-            return false;
+
+        // Atomic PENDING -> PROCESSING transition: concurrent callbacks or
+        // duplicate checkout requests must not each dispatch the fulfilment job.
+        $now = time();
+        $claimed = Order::where('id', $order->id)
+            ->where('status', Order::STATUS_PENDING)
+            ->update([
+                'status' => Order::STATUS_PROCESSING,
+                'paid_at' => $now,
+                'callback_no' => $callbackNo,
+                'updated_at' => $now,
+            ]);
+        if ($claimed === 0)
+            return true;
+
+        $order->refresh();
         try {
             OrderHandleJob::dispatchSync($order->trade_no);
         } catch (\Exception $e) {

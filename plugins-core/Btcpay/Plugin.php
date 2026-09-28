@@ -81,15 +81,24 @@ class Plugin extends AbstractPlugin implements PaymentInterface
     public function notify($params): array|bool
     {
         $payload = trim(request()->getContent());
-        $headers = getallheaders();
-        $headerName = 'Btcpay-Sig';
-        $signraturHeader = isset($headers[$headerName]) ? $headers[$headerName] : '';
+        $signraturHeader = (string) request()->header('BTCPay-Sig', '');
         $json_param = json_decode($payload, true);
 
-        $computedSignature = "sha256=" . \hash_hmac('sha256', $payload, $this->getConfig('btcpay_webhook_key'));
+        $webhookKey = (string) $this->getConfig('btcpay_webhook_key');
+        if ($webhookKey === '') {
+            throw new ApiException('Webhook key is not configured', 400);
+        }
+
+        $computedSignature = "sha256=" . \hash_hmac('sha256', $payload, $webhookKey);
 
         if (!$this->hashEqual($signraturHeader, $computedSignature)) {
             throw new ApiException('HMAC signature does not match', 400);
+        }
+
+        // Only a settled invoice counts as paid; InvoiceCreated etc. are signed too.
+        $invoiceId = (string) ($json_param['invoiceId'] ?? '');
+        if (($json_param['type'] ?? '') !== 'InvoiceSettled' || !preg_match('/^[A-Za-z0-9]+$/', $invoiceId)) {
+            return false;
         }
 
         $context = stream_context_create(array(
@@ -99,12 +108,16 @@ class Plugin extends AbstractPlugin implements PaymentInterface
             )
         ));
 
-        $invoiceDetail = file_get_contents($this->getConfig('btcpay_url') . 'api/v1/stores/' . $this->getConfig('btcpay_storeId') . '/invoices/' . $json_param['invoiceId'], false, $context);
-        $invoiceDetail = json_decode($invoiceDetail, true);
+        $invoiceDetail = file_get_contents($this->getConfig('btcpay_url') . 'api/v1/stores/' . $this->getConfig('btcpay_storeId') . '/invoices/' . $invoiceId, false, $context);
+        $invoiceDetail = json_decode((string) $invoiceDetail, true);
+
+        if (($invoiceDetail['status'] ?? '') !== 'Settled' || empty($invoiceDetail['metadata']['orderId'])) {
+            return false;
+        }
 
         $out_trade_no = $invoiceDetail['metadata']["orderId"];
-        $pay_trade_no = $json_param['invoiceId'];
-        
+        $pay_trade_no = $invoiceId;
+
         return [
             'trade_no' => $out_trade_no,
             'callback_no' => $pay_trade_no

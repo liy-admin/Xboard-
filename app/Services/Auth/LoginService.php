@@ -19,6 +19,8 @@ class LoginService
      */
     public function login(string $email, string $password): array
     {
+        $email = EmailCodeService::normalize($email);
+
         // 检查密码错误限制
         if ((int) admin_setting('password_limit_enable', true)) {
             $passwordErrorCount = (int) Cache::get(CacheKey::get('PASSWORD_ERROR_LIMIT', $email), 0);
@@ -85,6 +87,8 @@ class LoginService
      */
     public function resetPassword(string $email, string $emailCode, string $password): array
     {
+        $email = EmailCodeService::normalize($email);
+
         // 检查重置请求限制
         $forgetRequestLimitKey = CacheKey::get('FORGET_REQUEST_LIMIT', $email);
         $forgetRequestLimit = (int) Cache::get($forgetRequestLimitKey);
@@ -93,8 +97,7 @@ class LoginService
         }
 
         // 验证邮箱验证码
-        $cachedEmailCode = Cache::get(CacheKey::get('EMAIL_VERIFY_CODE', $email));
-        if ($cachedEmailCode === null || !hash_equals((string) $cachedEmailCode, $emailCode)) {
+        if (!app(EmailCodeService::class)->verify($email, (string) $emailCode)) {
             Cache::put($forgetRequestLimitKey, $forgetRequestLimit ? $forgetRequestLimit + 1 : 1, 300);
             return [false, [400, __('Incorrect email verification code')]];
         }
@@ -117,7 +120,7 @@ class LoginService
         HookManager::call('user.password.reset.after', $user);
 
         // 清除邮箱验证码
-        Cache::forget(CacheKey::get('EMAIL_VERIFY_CODE', $email));
+        app(EmailCodeService::class)->forget($email);
 
         return [true, true];
     }

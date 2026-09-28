@@ -33,7 +33,7 @@ class Helper
 
     public static function generateOrderNo(): string
     {
-        $randomChar = mt_rand(10000, 99999);
+        $randomChar = random_int(10000, 99999);
         return date('YmdHms') . substr(microtime(), 2, 6) . $randomChar;
     }
 
@@ -64,10 +64,9 @@ class Helper
         }
 
         $charsLen = count($chars) - 1;
-        shuffle($chars);
         $str = '';
         for ($i = 0; $i < $len; $i++) {
-            $str .= $chars[mt_rand(0, $charsLen)];
+            $str .= $chars[random_int(0, $charsLen)];
         }
         return $str;
     }

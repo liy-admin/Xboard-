@@ -87,8 +87,7 @@ class RegisterService
                 return [false, [422, __('Email verification code cannot be empty')]];
             }
 
-            $cachedEmailCode = Cache::get(CacheKey::get('EMAIL_VERIFY_CODE', $request->input('email')));
-            if ($cachedEmailCode === null || !hash_equals((string) $cachedEmailCode, (string) $emailCode)) {
+            if (!app(EmailCodeService::class)->verify((string) $request->input('email'), (string) $emailCode)) {
                 return [false, [400, __('Incorrect email verification code')]];
             }
         }
@@ -192,7 +191,7 @@ class RegisterService
 
         // 清除邮箱验证码
         if ((int) admin_setting('email_verify', 0)) {
-            Cache::forget(CacheKey::get('EMAIL_VERIFY_CODE', $email));
+            app(EmailCodeService::class)->forget($email);
         }
 
         // 更新最近登录时间
