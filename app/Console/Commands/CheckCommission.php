@@ -128,17 +128,23 @@ class CheckCommission extends Command
             // L1/L2/L3 逐级往上分——"薅时长"这个玩法本来就是奖励第一手推荐，
             // 不需要多级分销那么复杂。
             if ($l === 0 && $order->referral_duration_seconds) {
-                $inviter->expired_at = max($inviter->expired_at ?? time(), time()) + $order->referral_duration_seconds;
-                if (!$inviter->save()) {
-                    DB::rollBack();
-                    return false;
+                // 永久会员（有套餐且 expired_at 为 NULL，代表永不过期）不做覆盖：
+                // 若按 `expired_at ?? time()` 累加，会把无限期会员降级成一个几小时/
+                // 几天后就到期的有限时间。此时保持永久有效，跳过发放与记账。
+                $inviterIsPermanent = $inviter->plan_id !== null && $inviter->expired_at === null;
+                if (!$inviterIsPermanent) {
+                    $inviter->expired_at = max($inviter->expired_at ?? time(), time()) + $order->referral_duration_seconds;
+                    if (!$inviter->save()) {
+                        DB::rollBack();
+                        return false;
+                    }
+                    ReferralDurationLog::create([
+                        'inviter_id' => $inviteUserId,
+                        'invitee_id' => $order->user_id,
+                        'trade_no' => $order->trade_no,
+                        'seconds_credited' => $order->referral_duration_seconds,
+                    ]);
                 }
-                ReferralDurationLog::create([
-                    'inviter_id' => $inviteUserId,
-                    'invitee_id' => $order->user_id,
-                    'trade_no' => $order->trade_no,
-                    'seconds_credited' => $order->referral_duration_seconds,
-                ]);
             }
 
             $inviteUserId = $inviter->invite_user_id;

@@ -64,6 +64,12 @@ class LuckyDrawController extends Controller
                 if ($isWin) {
                     $hoursCredited = $rewardHours;
 
+                    // 领取前判断是否为"永久会员"：已有套餐且 expired_at 为 NULL
+                    // （一次性/流量套餐即为此形态）在系统里代表"永不过期"。若对其
+                    // 累加时长，NULL 会被当成 time() 处理，反而把无限期会员覆盖成
+                    // 几小时后到期——这正是要避免的。此时保持永久有效即可。
+                    $wasPermanentMember = $user->plan_id !== null && $user->expired_at === null;
+
                     // 从未开通过任何套餐（plan_id 为空）时，光延长 expired_at
                     // 没有意义——App 和节点鉴权都以 plan_id 是否存在来判断"是否
                     // 有会员"。这种情况下顺带发放试用套餐（复用设备体验账号
@@ -80,8 +86,12 @@ class LuckyDrawController extends Controller
                         }
                     }
 
-                    $userService = app(UserService::class);
-                    $user = $userService->extendSubscriptionSeconds($user, $hoursCredited * 3600);
+                    // 永久会员保持永久（expired_at 维持 NULL），不做覆盖；其余情况
+                    // 按秒累加，extendSubscriptionSeconds 内部已保证不会缩短现有时长。
+                    if (!$wasPermanentMember) {
+                        $userService = app(UserService::class);
+                        $user = $userService->extendSubscriptionSeconds($user, $hoursCredited * 3600);
+                    }
                     $user->save();
                 }
 

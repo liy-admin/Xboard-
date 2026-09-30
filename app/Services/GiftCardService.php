@@ -179,7 +179,13 @@ class GiftCardService
         } else {
             // 只有在不是套餐卡的情况下，才处理独立的有效期奖励
             if (isset($rewards['expire_days']) && $rewards['expire_days'] > 0) {
-                $userService->extendSubscription($this->user, $rewards['expire_days']);
+                // 永久会员（有套餐且 expired_at 为 NULL，代表永不过期）不做覆盖：
+                // 若按天累加，NULL 会被当成 time() 处理，反而把无限期会员降级成
+                // 一个若干天后就到期的有限时间。此时保持永久有效，跳过延长。
+                $isPermanentMember = $this->user->plan_id !== null && $this->user->expired_at === null;
+                if (!$isPermanentMember) {
+                    $userService->extendSubscription($this->user, $rewards['expire_days']);
+                }
             }
         }
 
