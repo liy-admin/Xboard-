@@ -811,6 +811,14 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "title": "在线人数",
         "tooltip": "在线人数根据服务端上报频率而定"
       },
+      "latency": {
+        "title": "测速",
+        "tooltip": "面板测速结果：延迟 / 国家 / 真实出口IP / 测速时间",
+        "untested": "未测速",
+        "unreachable": "不可达",
+        "exit": "出口",
+        "testedAt": "测速于"
+      },
       "rate": {
         "title": "倍率",
         "tooltip": "流量扣费倍率"
@@ -1851,6 +1859,10 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "title": "安全设置",
       "description": "配置系统安全相关选项，包括登录验证、密码策略、API访问等安全设置。",
       "form": {
+        "userWebLogin": {
+          "label": "允许普通用户网页登录",
+          "description": "关闭后，普通用户无法通过网页端（/#/login）登录查看账户，只能使用 App 登录；超级管理员登录后台不受影响。"
+        },
         "emailVerify": {
           "label": "邮箱验证",
           "description": "开启后将会强制要求用户进行邮箱验证。"
@@ -2210,7 +2222,24 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "sending": "发送中...",
         "description": "发送测试邮件以验证配置",
         "success": "测试邮件发送成功",
-        "error": "测试邮件发送失败"
+        "error": "测试邮件发送失败",
+        "recipient": "收件邮箱",
+        "recipient_placeholder": "留空则发送到当前管理员邮箱",
+        "recipient_description": "填写后测试邮件会发送到该地址（会先自动保存当前修改）",
+        "saving": "保存中...",
+        "fail_title": "发送失败",
+        "fail_description": "发送测试邮件时出错，请查看下方原因",
+        "success_description": "测试邮件已发送，请检查收件箱（包括垃圾箱）",
+        "field_to": "收件地址",
+        "field_subject": "主题",
+        "field_template": "模板",
+        "hint": {
+          "dns": "无法解析 SMTP 服务器域名：请检查「SMTP 服务器地址」是否拼写正确，以及服务器 DNS 是否正常。",
+          "connect": "无法连接到 SMTP 服务器：请检查服务器地址和端口是否正确，以及面板所在机器/云厂商是否封锁了该出站端口（25/465/587）。",
+          "auth": "SMTP 认证失败：请检查用户名、密码（很多邮箱需要使用授权码而非登录密码）。",
+          "ssl": "加密握手失败：请检查加密方式与端口是否匹配（465 通常选 SSL，587 通常选 TLS）。",
+          "unknown": "请根据上方错误信息排查 SMTP 配置。"
+        }
       }
     },
     "telegram": {
@@ -2297,6 +2326,20 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         },
         "force_update": {
           "title": "Android强制更新",
+          "description": "开启后客户端弹窗无法关闭，必须更新到最新版本才能继续使用"
+        }
+      },
+      "ios": {
+        "version": {
+          "title": "iOS版本",
+          "description": "iOS客户端当前版本号"
+        },
+        "download": {
+          "title": "iOS下载地址",
+          "description": "iOS客户端下载链接（如 App Store 地址），官网 iOS 下载按钮也读取此项，留空则显示「敬请期待」"
+        },
+        "force_update": {
+          "title": "iOS强制更新",
           "description": "开启后客户端弹窗无法关闭，必须更新到最新版本才能继续使用"
         }
       }
@@ -2473,6 +2516,126 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "uploading": "上传中...",
       "upload_error": "上传失败，请重试"
     },
+    "website": {
+      "title": "官网设置",
+      "description": "配置对外官网（独立部署的落地页）展示的文案：品牌信息、顶部公告、首页大标题、底部引导和联系邮箱。官网实时拉取后台配置，改完即生效，无需重新部署；留空的字段官网会使用内置默认文案。",
+      "section_brand": "品牌信息",
+      "section_announcement": "顶部公告条",
+      "section_hero": "首页主视觉",
+      "section_cta": "底部引导",
+      "section_footer": "页脚",
+      "website_brand_name": {
+        "title": "品牌名称",
+        "description": "显示在官网 Logo、标题栏和页脚版权处。",
+        "placeholder": "例如 NovaLink"
+      },
+      "website_brand_tagline": {
+        "title": "品牌标语",
+        "placeholder": "快速、安全、无限制的全球网络加速"
+      },
+      "website_brand_description": {
+        "title": "品牌简介",
+        "description": "用于官网页脚简介和 SEO 描述。",
+        "placeholder": "覆盖全球的高速节点，一键连接，畅享安全无限制的网络体验。"
+      },
+      "website_announcement_enabled": {
+        "title": "显示公告条",
+        "description": "关闭后官网顶部公告条整条隐藏。"
+      },
+      "website_announcement_text": {
+        "title": "公告文字",
+        "placeholder": "全新一代加速内核已上线，连接更快、更稳定。"
+      },
+      "website_announcement_link_text": {
+        "title": "公告链接文字",
+        "placeholder": "查看详情"
+      },
+      "website_announcement_link_href": {
+        "title": "公告链接地址",
+        "placeholder": "/blog 或 https://..."
+      },
+      "website_hero_title": {
+        "title": "首页大标题",
+        "placeholder": "随时都连得上的网络加速"
+      },
+      "website_hero_subtitle": {
+        "title": "首页副标题",
+        "placeholder": "全球优质线路，一键直连，稳定不掉线"
+      },
+      "website_cta_title": {
+        "title": "底部引导标题",
+        "placeholder": "立即开始免费试用"
+      },
+      "website_cta_subtitle": {
+        "title": "底部引导副文案",
+        "placeholder": "官网不支持直接注册，下载客户端后即可注册并获得试用额度"
+      },
+      "website_footer_contact": {
+        "title": "联系邮箱",
+        "description": "显示在官网页脚「联系我们」处。",
+        "placeholder": "support@example.com"
+      },
+      "stats": {
+        "title": "首页数据圈",
+        "description": "首页主视觉上的几个数据圆圈，每行一个「数值 + 说明」。建议 3 个，留空则官网使用内置默认。",
+        "value_placeholder": "数值，如 3s",
+        "label_placeholder": "说明，如 极速连接",
+        "add": "+ 添加数据",
+        "remove": "删除"
+      },
+      "saving": "保存中...",
+      "save_error": "保存失败，请重试"
+    },
+    "anti_loss": {
+      "title": "「软件防丢失」页面",
+      "description": "客户端侧边栏「软件防丢失」入口的内容配置：一张指向备用入口的二维码 + 保存引导文案 + 社媒入口。这页要在「官网被墙 / App 被下架」时还能用，二维码内容和全部文案都从这里下发，改完客户端无需发版即可生效。",
+      "anti_loss_qr_data": {
+        "title": "二维码内容",
+        "description": "二维码里编码的内容，一般填官网 / 备用域名 / 下载落地页地址，由客户端本地生成二维码。留空时客户端会退回站点地址。",
+        "placeholder": "https://your-domain.com/dl"
+      },
+      "anti_loss_qr_image_url": {
+        "title": "成品二维码图片地址（可选）",
+        "description": "如果二维码是带美化排版的设计稿、或内容里带统计参数，可在此直接填成品图地址；填了就优先用它，客户端加载失败时会自动退回本地生成。",
+        "placeholder": "https://example.com/qr.png"
+      },
+      "anti_loss_qr_logo_url": {
+        "title": "二维码中心 Logo（可选）",
+        "description": "本地生成二维码时嵌在中心的小图标，一般是 App Logo。",
+        "placeholder": "https://example.com/logo.png"
+      },
+      "anti_loss_title": {
+        "title": "大标题",
+        "placeholder": "保存二维码，永不失联"
+      },
+      "anti_loss_body": {
+        "title": "正文文案",
+        "placeholder": "永远摆脱封锁、永远拥有互联网自由，建议您珍藏本 App 防丢失二维码到相册！"
+      },
+      "anti_loss_save_button_text": {
+        "title": "保存按钮文案",
+        "placeholder": "立即保存"
+      },
+      "anti_loss_saved_toast": {
+        "title": "保存成功提示",
+        "placeholder": "已生成二维码图片，请在弹出的菜单中选择保存到相册"
+      },
+      "anti_loss_follow_text": {
+        "title": "社媒图标上方小字",
+        "placeholder": "社交媒体上追踪我们"
+      },
+      "socials": {
+        "title": "社交媒体入口",
+        "description": "每行一个社媒账号。「平台名」用于客户端自动匹配内置图标，只填平台名和链接即可，无需上传图标；需要自定义图标时再填图标地址（加载失败会退回内置图标）。链接为空的条目不会显示。可自动配图标的平台：",
+        "name_placeholder": "平台名，如 telegram",
+        "url_placeholder": "链接，如 https://t.me/your_channel",
+        "icon_placeholder": "自定义图标地址（可选）",
+        "add": "+ 添加社媒",
+        "remove": "删除"
+      },
+      "saving": "保存中...",
+      "save_error": "保存失败，请重试"
+    },
     "support": {
       "title": "在线客服",
       "description": "客户端「在线客服」接入的自建 Chatwoot 配置。客户端通过加密接口读取，修改后下次打开客服页即生效，无需发版。",
@@ -2558,6 +2721,71 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "title": "WebSocket 地址",
         "description": "节点连接面板的 WebSocket 地址，留空则自动使用站点网址。",
         "placeholder": "留空则使用站点网址"
+      },
+      "latency_section": "测速与按国家下发",
+      "server_latency_probe_enable": {
+        "title": "启用自动测速",
+        "description": "面板定时探测每个节点的延迟并自动解析所在国家。关闭后不再探测。"
+      },
+      "node_probe_mode": {
+        "title": "探测方式",
+        "description": "TCP：对节点做 TCP 握手测延迟，国家优先从节点名解析（轻量，无需额外依赖）。sing-box：面板用 sing-box 核心实际跑一遍节点，测真实出口 IP、延迟和落地国——对中转节点也能判准落地国，但需在面板宿主机安装 sing-box。",
+        "tcp": "TCP 握手（轻量）",
+        "singbox": "sing-box 实跑（最准确）",
+        "singbox_hint": "开启自动下载后，面板会自行从官方下载并缓存 sing-box，无需手动安装。面板会为每个节点启动一次 sing-box 连接并请求 IP 回显，耗时较长，建议探测间隔放宽。",
+        "singbox_unavailable": "未检测到可用的 sing-box，将自动回退到 TCP 方式。"
+      },
+      "node_probe_singbox_auto_download": {
+        "title": "自动下载 sing-box",
+        "description": "面板宿主机没有 sing-box 时，按系统架构从官方 GitHub 自动下载、解压并缓存，无需手动安装。"
+      },
+      "node_probe_singbox_version": {
+        "title": "sing-box 版本",
+        "description": "自动下载的 sing-box 版本号（官方发布 tag，不含 v）。",
+        "placeholder": "1.14.2"
+      },
+      "node_probe_singbox_path": {
+        "title": "sing-box 路径（可选）",
+        "description": "自定义 sing-box 可执行文件路径或命令名；留空则使用自动下载的副本。",
+        "placeholder": "留空自动下载"
+      },
+      "node_probe_ip_echo_url": {
+        "title": "IP 回显地址",
+        "description": "通过节点访问该地址以获取真实出口 IP 与国家。默认用 ip-api.com（返回出口 IP 和国家码）。",
+        "placeholder": "http://ip-api.com/json/?fields=status,countryCode,query"
+      },
+      "server_latency_timeout_ms": {
+        "title": "测速超时（毫秒）",
+        "description": "单个节点探测的超时时间，范围 200–10000，默认 2000。",
+        "placeholder": "2000"
+      },
+      "server_auto_manage_visibility": {
+        "title": "按测速结果自动显隐节点",
+        "description": "开启后，测速任务会探测全部节点（含已隐藏的），并自动把「每国延迟最低的可达节点 + 无国家的可达节点」设为显示、其余隐藏，让节点管理里的显隐直接反映实际下发。主节点掉线后会自动启用同国家的备用节点。"
+      },
+      "server_dedup_by_country": {
+        "title": "每个国家只下发一个节点",
+        "description": "开启后，订阅只下发每个国家延迟最低的可用节点；无法确定国家的节点原样保留。仅影响客户端订阅，不影响后台节点列表。若已开启上面的「自动显隐」则无需再开此项。"
+      },
+      "server_country_naming": {
+        "title": "按国家重命名节点",
+        "description": "把入选节点名改成「🇺🇸 国家名」，方便客户端按国家分组、显示旗帜。"
+      },
+      "server_latency_stale_seconds": {
+        "title": "延迟有效期（秒）",
+        "description": "超过该时长的旧延迟值不再用于「每国选最快」排序（节点仍可用）。默认 600。",
+        "placeholder": "600"
+      },
+      "geoip_method": {
+        "title": "国家解析方式",
+        "description": "api：调用 ip-api.com 在线解析（免费、免配置）；maxmind：本地 GeoLite2 库（需自备 mmdb，暂未实现，会回退到 api）。",
+        "api": "在线 API（ip-api.com）",
+        "maxmind": "本地 MaxMind 库"
+      },
+      "geoip_maxmind_db_path": {
+        "title": "MaxMind 数据库路径",
+        "description": "GeoLite2-Country.mmdb 的绝对路径。",
+        "placeholder": "/path/to/GeoLite2-Country.mmdb"
       },
       "saving": "保存中...",
       "manage": {

@@ -20,8 +20,8 @@ export function getEmailTemplate() {
     return http.get(sp() + "/config/getEmailTemplate");
 }
 
-export function sendTestMail() {
-    return http.post(sp() + "/config/testSendMail");
+export function sendTestMail(email) {
+    return http.post(sp() + "/config/testSendMail", email ? { email } : {});
 }
 
 export function setTelegramWebhook() {

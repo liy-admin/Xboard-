@@ -2,11 +2,13 @@
 namespace App\Http\Routes\V1;
 
 use App\Http\Controllers\V1\Guest\AdBannerController;
+use App\Http\Controllers\V1\Guest\AntiLossController;
 use App\Http\Controllers\V1\Guest\CommController;
 use App\Http\Controllers\V1\Guest\DiscoverController;
 use App\Http\Controllers\V1\Guest\PaymentController;
 use App\Http\Controllers\V1\Guest\PlanController;
 use App\Http\Controllers\V1\Guest\TelegramController;
+use App\Http\Controllers\V1\Guest\WebsiteController;
 use App\Http\Controllers\V1\User\NoticeController;
 use Illuminate\Contracts\Routing\Registrar;
 
@@ -25,8 +27,12 @@ class GuestRoute
             $router->match(['get', 'post'], '/payment/notify/{method}/{uuid}', [PaymentController::class, 'notify']);
             // Comm
             $router->get('/comm/config', [CommController::class, 'config']);
+            // Website（对外官网落地页内容，未登录也能打开）
+            $router->get('/website/config', [WebsiteController::class, 'config']);
             // Discover
             $router->get('/discover/config', [DiscoverController::class, 'config']);
+            // Anti-loss（软件防丢失，未登录也能打开）
+            $router->get('/anti_loss/config', [AntiLossController::class, 'config']);
             // Ad banner
             $router->get('/ad-banner/config', [AdBannerController::class, 'config']);
             // Notice（公告无需认证）

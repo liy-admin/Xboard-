@@ -44,6 +44,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('horizon:snapshot')->everyFiveMinutes()->onOneServer();
         // cleanup stale online_count (GC for Redis TTL expiration)
         $schedule->command('cleanup:online-status')->everyFiveMinutes()->onOneServer();
+        // 节点测速（TCP 握手 / ICMP ping）+ GeoIP 国家解析；命令内部受 server_latency_probe_enable 控制
+        $schedule->command('check:server-latency')->everyThreeMinutes()->onOneServer()->withoutOverlapping(10)->runInBackground();
         // backup Timing
         // if (env('ENABLE_AUTO_BACKUP_AND_UPDATE', false)) {
         //     $schedule->command('backup:database', ['true'])->daily()->onOneServer();

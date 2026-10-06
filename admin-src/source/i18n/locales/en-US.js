@@ -850,6 +850,14 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "title": "Online Users",
         "tooltip": "Online users count based on server reporting frequency"
       },
+      "latency": {
+        "title": "Speed test",
+        "tooltip": "Panel probe result: latency / country / real exit IP / tested time",
+        "untested": "Not tested",
+        "unreachable": "Unreachable",
+        "exit": "Exit",
+        "testedAt": "Tested"
+      },
       "rate": {
         "title": "Rate",
         "tooltip": "Traffic billing rate"
@@ -1800,6 +1808,71 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "description": "The WebSocket address nodes use to connect to the panel. Leave empty to use the site URL.",
         "placeholder": "Leave empty to use site URL"
       },
+      "latency_section": "Speed test & per-country delivery",
+      "server_latency_probe_enable": {
+        "title": "Enable auto speed test",
+        "description": "Periodically probe each node's latency and auto-resolve its country. Disable to stop probing."
+      },
+      "node_probe_mode": {
+        "title": "Probe method",
+        "description": "TCP: TCP handshake for latency, country parsed from the node name first (lightweight, no extra dependency). sing-box: the panel actually runs each node through the sing-box core to measure the real exit IP, latency and landing country — correct even for relay nodes, but requires sing-box installed on the panel host.",
+        "tcp": "TCP handshake (lightweight)",
+        "singbox": "sing-box run (most accurate)",
+        "singbox_hint": "With auto-download on, the panel fetches and caches sing-box from the official release itself — no manual install needed. It spins up a sing-box connection per node and requests an IP echo, which is slow — widen the probe interval accordingly.",
+        "singbox_unavailable": "No usable sing-box detected; falling back to TCP mode."
+      },
+      "node_probe_singbox_auto_download": {
+        "title": "Auto-download sing-box",
+        "description": "When the panel host has no sing-box, download, extract and cache it from the official GitHub release for the host's OS/arch — no manual install."
+      },
+      "node_probe_singbox_version": {
+        "title": "sing-box version",
+        "description": "Version to auto-download (official release tag, without the leading v).",
+        "placeholder": "1.14.2"
+      },
+      "node_probe_singbox_path": {
+        "title": "sing-box path (optional)",
+        "description": "Custom sing-box binary path or command name; leave blank to use the auto-downloaded copy.",
+        "placeholder": "Leave blank to auto-download"
+      },
+      "node_probe_ip_echo_url": {
+        "title": "IP echo URL",
+        "description": "URL fetched through the node to obtain the real exit IP and country. Defaults to ip-api.com (returns exit IP and country code).",
+        "placeholder": "http://ip-api.com/json/?fields=status,countryCode,query"
+      },
+      "server_latency_timeout_ms": {
+        "title": "Probe timeout (ms)",
+        "description": "Timeout per node probe, range 200–10000, default 2000.",
+        "placeholder": "2000"
+      },
+      "server_auto_manage_visibility": {
+        "title": "Auto show/hide nodes by speed test",
+        "description": "When enabled, the probe task tests all nodes (including hidden ones) and automatically shows the lowest-latency reachable node per country (plus reachable country-less nodes) and hides the rest, so the node list's visibility reflects what is actually delivered. If the active node goes down, a backup in the same country is promoted automatically."
+      },
+      "server_dedup_by_country": {
+        "title": "Deliver one node per country",
+        "description": "When enabled, the subscription only delivers the lowest-latency available node per country; nodes without a known country are kept as-is. Affects the client subscription only, not the admin node list. Not needed if \"auto show/hide\" above is enabled."
+      },
+      "server_country_naming": {
+        "title": "Rename nodes by country",
+        "description": "Rename the chosen node to \"🇺🇸 Country\" so the client can group by country and show flags."
+      },
+      "server_latency_stale_seconds": {
+        "title": "Latency freshness (seconds)",
+        "description": "Latency older than this is no longer used for the per-country \"fastest\" ranking (the node stays available). Default 600.",
+        "placeholder": "600"
+      },
+      "geoip_method": {
+        "title": "Country resolution method",
+        "description": "api: resolve online via ip-api.com (free, no setup); maxmind: local GeoLite2 database (requires your own mmdb, not yet implemented, falls back to api).",
+        "api": "Online API (ip-api.com)",
+        "maxmind": "Local MaxMind DB"
+      },
+      "geoip_maxmind_db_path": {
+        "title": "MaxMind database path",
+        "description": "Absolute path to GeoLite2-Country.mmdb.",
+        "placeholder": "/path/to/GeoLite2-Country.mmdb"
+      },
       "saving": "Saving..."
     },
     "invite": {
@@ -1968,6 +2041,126 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "uploading": "Uploading...",
       "upload_error": "Upload failed, please try again"
     },
+    "website": {
+      "title": "Website",
+      "description": "Configure the copy shown on your public marketing website (the standalone landing page): brand info, top announcement, homepage hero, bottom call-to-action and contact email. The website fetches these settings live, so changes take effect without a redeploy; empty fields fall back to the website's built-in defaults.",
+      "section_brand": "Brand",
+      "section_announcement": "Announcement bar",
+      "section_hero": "Homepage hero",
+      "section_cta": "Bottom call-to-action",
+      "section_footer": "Footer",
+      "website_brand_name": {
+        "title": "Brand name",
+        "description": "Shown in the website logo, title bar and footer copyright.",
+        "placeholder": "e.g. NovaLink"
+      },
+      "website_brand_tagline": {
+        "title": "Brand tagline",
+        "placeholder": "Fast, secure, unrestricted global acceleration"
+      },
+      "website_brand_description": {
+        "title": "Brand description",
+        "description": "Used in the website footer blurb and SEO description.",
+        "placeholder": "High-speed nodes worldwide, one-tap connect, safe and unrestricted."
+      },
+      "website_announcement_enabled": {
+        "title": "Show announcement bar",
+        "description": "When off, the website's top announcement bar is hidden entirely."
+      },
+      "website_announcement_text": {
+        "title": "Announcement text",
+        "placeholder": "Our next-gen core is live — faster and more stable."
+      },
+      "website_announcement_link_text": {
+        "title": "Announcement link text",
+        "placeholder": "Learn more"
+      },
+      "website_announcement_link_href": {
+        "title": "Announcement link URL",
+        "placeholder": "/blog or https://..."
+      },
+      "website_hero_title": {
+        "title": "Hero title",
+        "placeholder": "Network acceleration that always connects"
+      },
+      "website_hero_subtitle": {
+        "title": "Hero subtitle",
+        "placeholder": "Premium global routes, one-tap connect, rock-solid stability"
+      },
+      "website_cta_title": {
+        "title": "CTA title",
+        "placeholder": "Start your free trial now"
+      },
+      "website_cta_subtitle": {
+        "title": "CTA subtitle",
+        "placeholder": "Registration isn't on the website — download the app to sign up and get a trial."
+      },
+      "website_footer_contact": {
+        "title": "Contact email",
+        "description": "Shown under \"Contact us\" in the website footer.",
+        "placeholder": "support@example.com"
+      },
+      "stats": {
+        "title": "Hero stat badges",
+        "description": "The stat circles on the homepage hero, one \"value + label\" per row. Three recommended; leave empty to use the website's built-in defaults.",
+        "value_placeholder": "Value, e.g. 3s",
+        "label_placeholder": "Label, e.g. Fast connect",
+        "add": "+ Add stat",
+        "remove": "Remove"
+      },
+      "saving": "Saving...",
+      "save_error": "Save failed, please retry"
+    },
+    "anti_loss": {
+      "title": "\"Anti-loss\" page",
+      "description": "Content for the client's \"Anti-loss\" sidebar entry: a QR code pointing to a backup entry point, save guidance, and social links. This page must keep working when the main site is blocked or the app is delisted, so the QR content and all copy are delivered from here and take effect without a client release.",
+      "anti_loss_qr_data": {
+        "title": "QR code content",
+        "description": "What the QR code encodes — usually your site / backup domain / download landing page. The client generates the QR code locally. When empty, the client falls back to the site address.",
+        "placeholder": "https://your-domain.com/dl"
+      },
+      "anti_loss_qr_image_url": {
+        "title": "Pre-made QR image URL (optional)",
+        "description": "If your QR code is a designed graphic or carries tracking params, put the finished image URL here. When set it takes priority; the client falls back to local generation if it fails to load.",
+        "placeholder": "https://example.com/qr.png"
+      },
+      "anti_loss_qr_logo_url": {
+        "title": "QR center logo (optional)",
+        "description": "Small icon embedded at the center when the QR is generated locally, usually the app logo.",
+        "placeholder": "https://example.com/logo.png"
+      },
+      "anti_loss_title": {
+        "title": "Headline",
+        "placeholder": "Save the QR code, never lose access"
+      },
+      "anti_loss_body": {
+        "title": "Body text",
+        "placeholder": "Keep this anti-loss QR code in your photo album so you can always find your way back."
+      },
+      "anti_loss_save_button_text": {
+        "title": "Save button text",
+        "placeholder": "Save now"
+      },
+      "anti_loss_saved_toast": {
+        "title": "Save success toast",
+        "placeholder": "QR image ready — choose \"Save to album\" from the menu"
+      },
+      "anti_loss_follow_text": {
+        "title": "Text above social icons",
+        "placeholder": "Follow us on social media"
+      },
+      "socials": {
+        "title": "Social links",
+        "description": "One social account per row. The platform name is used to auto-match a built-in icon, so name + URL is enough — no icon upload needed. Add a custom icon URL only if you want one (falls back to the built-in icon if it fails to load). Rows with an empty URL are hidden. Platforms with built-in icons:",
+        "name_placeholder": "Platform, e.g. telegram",
+        "url_placeholder": "URL, e.g. https://t.me/your_channel",
+        "icon_placeholder": "Custom icon URL (optional)",
+        "add": "+ Add social",
+        "remove": "Remove"
+      },
+      "saving": "Saving...",
+      "save_error": "Save failed, please try again"
+    },
     "support": {
       "title": "Live Chat",
       "description": "Self-hosted Chatwoot settings behind the client's live chat entry. The client reads them over an encrypted endpoint, so changes take effect on the next visit without a new release.",
@@ -2095,6 +2288,10 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "title": "Security Settings",
       "description": "Configure system security options, including login verification, password policies, and API access settings.",
       "form": {
+        "userWebLogin": {
+          "label": "Allow user web login",
+          "description": "When disabled, regular users cannot sign in through the web (/#/login) and must use the app; super admin access to the admin panel is unaffected."
+        },
         "emailVerify": {
           "label": "Email Verification",
           "description": "When enabled, users will be required to verify their email."
@@ -2454,7 +2651,24 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "sending": "Sending...",
         "description": "Send a test email to verify the configuration",
         "success": "Test email sent successfully",
-        "error": "Failed to send test email"
+        "error": "Failed to send test email",
+        "recipient": "Recipient",
+        "recipient_placeholder": "Leave empty to send to the current admin email",
+        "recipient_description": "The test email will be sent to this address (current changes are saved first)",
+        "saving": "Saving...",
+        "fail_title": "Send failed",
+        "fail_description": "An error occurred while sending the test email. See the reason below",
+        "success_description": "Test email sent. Please check your inbox (and spam folder)",
+        "field_to": "Recipient",
+        "field_subject": "Subject",
+        "field_template": "Template",
+        "hint": {
+          "dns": "Cannot resolve the SMTP host: check the host name spelling and the server DNS.",
+          "connect": "Cannot connect to the SMTP server: check host and port, and whether this machine or your cloud provider blocks outbound port 25/465/587.",
+          "auth": "SMTP authentication failed: check the username and password (many providers require an app password / authorization code).",
+          "ssl": "Encryption handshake failed: make sure the encryption type matches the port (465 usually SSL, 587 usually TLS).",
+          "unknown": "Check your SMTP settings using the error message above."
+        }
       }
     },
     "telegram": {
@@ -2541,6 +2755,20 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         },
         "force_update": {
           "title": "Android Force Update",
+          "description": "When enabled, the update dialog cannot be dismissed until the client updates to the latest version"
+        }
+      },
+      "ios": {
+        "version": {
+          "title": "iOS Version",
+          "description": "Current version number of iOS client"
+        },
+        "download": {
+          "title": "iOS Download URL",
+          "description": "Download link for iOS client (e.g. App Store URL); the website's iOS download button reads this too. Leave empty to show \"Coming soon\"."
+        },
+        "force_update": {
+          "title": "iOS Force Update",
           "description": "When enabled, the update dialog cannot be dismissed until the client updates to the latest version"
         }
       }

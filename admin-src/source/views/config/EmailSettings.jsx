@@ -25,6 +25,9 @@ export function EmailSettings() {
     const [testResult, setTestResult] = useState(null);
     const [testOpen, setTestOpen] = useState(false);
     const [testSending, setTestSending] = useState(false);
+    const [testEmail, setTestEmail] = useState("");
+    const valuesRef = useRef(DEFAULTS);
+    valuesRef.current = values;
 
     useEffect(() => {
         getSettings("email").then((res) => {
@@ -58,15 +61,28 @@ export function EmailSettings() {
 
     useEffect(() => () => doSave.cancel(), [doSave]);
 
+    // 设置是防抖 1 秒自动保存的；测试前必须立刻落库，否则后端读到的还是旧配置。
+    const saveNow = async () => {
+        doSave.cancel();
+        const data = valuesRef.current;
+        if (isEqual(data, lastSavedRef.current)) return;
+        setSaving(true);
+        try {
+            await saveSettings(data);
+            lastSavedRef.current = { ...data };
+        } finally { setSaving(false); }
+    };
+
     const handleSendTest = async () => {
         setTestSending(true);
         setTestResult(null);
         try {
-            const res = await sendTestMail();
+            await saveNow();
+            const res = await sendTestMail(testEmail.trim());
             setTestResult(res?.data || res);
             setTestOpen(true);
         } catch (e) {
-            setTestResult({ error: e?.message || "Send failed" });
+            setTestResult({ error: e?.message || t("email.test.error") });
             setTestOpen(true);
         } finally {
             setTestSending(false);
@@ -89,7 +105,7 @@ export function EmailSettings() {
                     <div className="space-y-1.5">
                         <div className="text-base font-medium">{t("email.email_encryption.title")}</div>
                         <Select value={encryptionValue} onValueChange={(v) => setField("email_encryption", v === "none" ? "" : v)}>
-                            <SelectTrigger><SelectValue placeholder="Chọn kiểu mã hóa" /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder={t("email.email_encryption.title")} /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">{t("email.email_encryption.none")}</SelectItem>
                                 <SelectItem value="ssl">{t("email.email_encryption.ssl")}</SelectItem>
@@ -102,13 +118,14 @@ export function EmailSettings() {
                     <FormField type="password" label={t("email.email_password.title")} placeholder={t("common.placeholder")} description={t("email.email_password.description")} value={values.email_password ?? ""} onChange={(v) => setField("email_password", v)} />
                     <FormField label={t("email.email_from.title")} placeholder={t("common.placeholder")} description={t("email.email_from.description")} value={values.email_from_address ?? ""} onChange={(v) => setField("email_from_address", v)} />
                     <ToggleField label={t("email.remind_mail.title")} description={t("email.remind_mail.description")} checked={values.remind_mail_enable ?? false} onChange={(v) => setField("remind_mail_enable", v)} />
+                    <FormField label={t("email.test.recipient")} placeholder={t("email.test.recipient_placeholder")} description={t("email.test.recipient_description")} value={testEmail} onChange={setTestEmail} />
                     <div className="flex items-center justify-between">
                         <Button onClick={handleSendTest} loading={testSending} disabled={testSending}>
                             {testSending ? t("email.test.sending") : t("email.test.title")}
                         </Button>
                     </div>
                 </div>
-                {saving && <div className="mt-2 text-sm text-muted-foreground">Đang lưu...</div>}
+                {saving && <div className="mt-2 text-sm text-muted-foreground">{t("email.test.saving")}</div>}
             </div>
             {testOpen && testResult && (
                 <Dialog open={testOpen} onOpenChange={setTestOpen} className="sm:max-w-md">
@@ -119,22 +136,25 @@ export function EmailSettings() {
                             ) : (
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="m9 11 3 3L22 4" /></svg>
                             )}
-                            {testResult.error ? "Gửi email thất bại" : "Gửi email thành công"}
+                            {testResult.error ? t("email.test.fail_title") : t("email.test.success")}
                         </h3>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            {testResult.error ? "Đã xảy ra lỗi khi gửi email thử nghiệm" : "Email thử nghiệm đã được gửi thành công, vui lòng kiểm tra hộp thư"}
+                            {testResult.error ? t("email.test.fail_description") : t("email.test.success_description")}
                         </p>
                         <div className="mt-4 grid gap-2">
-                            <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
-                                <div className="text-muted-foreground">Địa chỉ nhận</div>
+                            <div className="grid grid-cols-[110px_1fr] gap-2 text-sm">
+                                <div className="text-muted-foreground">{t("email.test.field_to")}</div>
                                 <div>{testResult.email || "-"}</div>
-                                <div className="text-muted-foreground">Chủ đề</div>
+                                <div className="text-muted-foreground">{t("email.test.field_subject")}</div>
                                 <div>{testResult.subject || "-"}</div>
-                                <div className="text-muted-foreground">Tên mẫu</div>
+                                <div className="text-muted-foreground">{t("email.test.field_template")}</div>
                                 <div>{testResult.template_name || "-"}</div>
                             </div>
                             {testResult.error && (
                                 <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{testResult.error}</div>
+                            )}
+                            {testResult.error && testResult.hint && (
+                                <div className="rounded-md bg-muted p-3 text-sm">{t(`email.test.hint.${testResult.hint}`)}</div>
                             )}
                         </div>
                     </div>

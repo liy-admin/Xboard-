@@ -66,6 +66,55 @@ function copyText(text) {
     navigator.clipboard?.writeText(String(text)).catch(() => {});
 }
 
+// 两位 ISO 国家码 -> 旗帜 emoji
+function countryFlagEmoji(cc) {
+    if (!cc || cc.length !== 2 || !/^[A-Za-z]{2}$/.test(cc)) return "🏳️";
+    const base = 0x1f1e6;
+    const up = cc.toUpperCase();
+    return String.fromCodePoint(base + up.charCodeAt(0) - 65, base + up.charCodeAt(1) - 65);
+}
+
+function latencyTone(ms) {
+    if (ms == null) return "text-muted-foreground";
+    if (ms < 150) return "text-emerald-600 dark:text-emerald-400";
+    if (ms < 400) return "text-amber-600 dark:text-amber-400";
+    return "text-rose-600 dark:text-rose-400";
+}
+
+function timeAgo(ts) {
+    if (!ts) return "";
+    const s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.floor(s / 60)}m`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h`;
+    return `${Math.floor(s / 86400)}d`;
+}
+
+// 节点管理里的「测速」列：延迟 + 国旗/国家码 + 真实出口IP + 测速时间
+function renderLatency(node, t) {
+    if (!node.last_latency_at) {
+        return <span className="text-xs text-muted-foreground">{t("columns.latency.untested")}</span>;
+    }
+    const cc = node.country_code ? String(node.country_code).toUpperCase() : null;
+    return (
+        <div className="flex flex-col gap-0.5 text-xs leading-tight">
+            <div className="flex items-center gap-1.5">
+                {cc && <span title={cc}>{countryFlagEmoji(cc)}</span>}
+                {node.latency_ms == null ? (
+                    <span className="font-medium text-rose-600 dark:text-rose-400">{t("columns.latency.unreachable")}</span>
+                ) : (
+                    <span className={`font-medium ${latencyTone(node.latency_ms)}`}>{node.latency_ms}ms</span>
+                )}
+                {cc && <span className="text-muted-foreground">{cc}</span>}
+            </div>
+            {node.exit_ip && (
+                <div className="font-mono text-[10px] text-muted-foreground">{t("columns.latency.exit")} {node.exit_ip}</div>
+            )}
+            <div className="text-[10px] text-muted-foreground">{t("columns.latency.testedAt")} {timeAgo(node.last_latency_at)}</div>
+        </div>
+    );
+}
+
 export function NodeManagement() {
     const { t } = useTranslation("server");
     const auth = useAuthState();
@@ -320,6 +369,7 @@ export function NodeManagement() {
                             <TableHead>{t("columns.deployment.title")}</TableHead>
                             <TableHead>{t("columns.address")}</TableHead>
                             <TableHead>{t("columns.onlineUsers.title")}</TableHead>
+                            <TableHead>{t("columns.latency.title")}</TableHead>
                             <TableHead>{t("columns.rate.title")}</TableHead>
                             <TableHead>{t("columns.groups.title")}</TableHead>
                             <TableHead>{t("columns.type")}</TableHead>
@@ -329,9 +379,9 @@ export function NodeManagement() {
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            <TableEmpty colSpan={12}>...</TableEmpty>
+                            <TableEmpty colSpan={13}>...</TableEmpty>
                         ) : displayItems.length === 0 ? (
-                            <TableEmpty colSpan={12}>-</TableEmpty>
+                            <TableEmpty colSpan={13}>-</TableEmpty>
                         ) : (
                             displayItems.map((node, index) => {
                                 const machine = node.machine_id ? machineById.get(node.machine_id) : null;
@@ -419,7 +469,7 @@ export function NodeManagement() {
                                                 <div className="text-[10px] text-muted-foreground">({t("columns.internalPort")} {node.server_port})</div>
                                             )}
                                         </TableCell>
-                                        <TableCell>{node.online ?? 0}</TableCell>
+                                        <TableCell>{renderLatency(node, t)}</TableCell>
                                         <TableCell><Badge variant="secondary">{node.rate}x</Badge></TableCell>
                                         <TableCell>
                                             <div className="flex flex-wrap gap-1">

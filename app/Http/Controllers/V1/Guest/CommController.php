@@ -28,6 +28,9 @@ class CommController extends Controller
             'app_description' => admin_setting('app_description'),
             'app_url' => admin_setting('app_url'),
             'logo' => admin_setting('logo'),
+            // 普通用户是否允许网页登录（0=禁用）。前端据此隐藏/拦截 /#/login 登录页；
+            // 真正的拦截在 passport 登录接口服务端完成，这里仅供前端做观感处理。
+            'is_web_login_enable' => (int) admin_setting('user_web_login_enable', 1) ? 1 : 0,
             // 保持向后兼容
             'is_recaptcha' => (int) admin_setting('captcha_enable', 0) ? 1 : 0,
         ];

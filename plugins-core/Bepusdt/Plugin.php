@@ -5,6 +5,7 @@ namespace Plugin\Bepusdt;
 use App\Services\Plugin\AbstractPlugin;
 use App\Contracts\PaymentInterface;
 use App\Exceptions\ApiException;
+use Illuminate\Support\Facades\Log;
 
 class Plugin extends AbstractPlugin implements PaymentInterface
 {
@@ -103,16 +104,43 @@ class Plugin extends AbstractPlugin implements PaymentInterface
 
     public function notify($params): array|bool
     {
+        // BEpusdt POSTs a JSON body; prefer the raw body so the signed values
+        // match byte-for-byte what BEpusdt signed (Laravel's input() is fine too,
+        // but decoding the raw body avoids any middleware mutation).
+        $raw = trim((string) request()->getContent());
+        if ($raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $params = $decoded;
+            }
+        }
+
         $signature = $params['signature'] ?? '';
         unset($params['signature']);
 
-        if (empty($signature) || !$this->hashEqual($signature, $this->sign($params))) {
+        $expected = $this->sign($params);
+        if (empty($signature) || !$this->hashEqual($signature, $expected)) {
+            Log::warning('[BEpusdt] notify signature mismatch', [
+                'received' => $signature,
+                'expected' => $expected,
+                'params' => $params,
+            ]);
             return false;
         }
 
         if ((int) ($params['status'] ?? 0) !== self::STATUS_SUCCESS) {
+            // Pending (1) / timeout (3): not an error, just not paid yet.
+            Log::info('[BEpusdt] notify ignored, status not success', [
+                'order_id' => $params['order_id'] ?? null,
+                'status' => $params['status'] ?? null,
+            ]);
             return false;
         }
+
+        Log::info('[BEpusdt] notify verified, marking paid', [
+            'order_id' => $params['order_id'] ?? null,
+            'trade_id' => $params['trade_id'] ?? null,
+        ]);
 
         return [
             'trade_no' => $params['order_id'],

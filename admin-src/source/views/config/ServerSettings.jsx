@@ -12,6 +12,13 @@ import isEqual from "lodash/isEqual";
 const DEFAULTS = {
     server_pull_interval: 0, server_push_interval: 0, server_token: "",
     device_limit_mode: 0, server_ws_enable: false, server_ws_url: "",
+    server_latency_probe_enable: true, server_latency_timeout_ms: 2000,
+    server_latency_stale_seconds: 600, server_dedup_by_country: false,
+    server_country_naming: true, server_auto_manage_visibility: false,
+    geoip_method: "api", geoip_maxmind_db_path: "",
+    node_probe_mode: "tcp", node_probe_singbox_path: "",
+    node_probe_singbox_auto_download: true, node_probe_singbox_version: "1.14.2",
+    node_probe_ip_echo_url: "http://ip-api.com/json/?fields=status,countryCode,query",
 };
 
 function generateToken() {
@@ -134,6 +141,91 @@ export function ServerSettings() {
                     <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" width="1.2em" height="1.2em"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8.01 8.01 0 0 1-8 8m0-8.5a1 1 0 0 0-1 1v3a1 1 0 0 0 2 0v-3a1 1 0 0 0-1-1m0-4a1.25 1.25 0 1 0 1.25 1.25A1.25 1.25 0 0 0 12 7.5" /></svg>
                     <span>{t("server.server_ws_enable.supported_clients")}</span>
                 </div>
+
+                <hr className="my-6" />
+                <div className="text-base font-semibold">{t("server.latency_section")}</div>
+
+                <ToggleField label={t("server.server_latency_probe_enable.title")} description={t("server.server_latency_probe_enable.description")} checked={values.server_latency_probe_enable ?? true} onChange={(v) => setField("server_latency_probe_enable", v)} />
+                {values.server_latency_probe_enable && (
+                    <>
+                        <div className="space-y-1.5">
+                            <div className="text-base font-medium">{t("server.node_probe_mode.title")}</div>
+                            <select
+                                className="inline-flex h-9 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                                value={values.node_probe_mode ?? "tcp"}
+                                onChange={(e) => setField("node_probe_mode", e.target.value)}
+                            >
+                                <option value="tcp">{t("server.node_probe_mode.tcp")}</option>
+                                <option value="singbox">{t("server.node_probe_mode.singbox")}</option>
+                            </select>
+                            <p className="text-sm text-muted-foreground">{t("server.node_probe_mode.description")}</p>
+                        </div>
+                        {values.node_probe_mode === "singbox" && (
+                            <>
+                                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
+                                    <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" width="1.2em" height="1.2em"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8.01 8.01 0 0 1-8 8m0-8.5a1 1 0 0 0-1 1v3a1 1 0 0 0 2 0v-3a1 1 0 0 0-1-1m0-4a1.25 1.25 0 1 0 1.25 1.25A1.25 1.25 0 0 0 12 7.5" /></svg>
+                                    <span>{t("server.node_probe_mode.singbox_hint")}</span>
+                                </div>
+                                <ToggleField label={t("server.node_probe_singbox_auto_download.title")} description={t("server.node_probe_singbox_auto_download.description")} checked={values.node_probe_singbox_auto_download ?? true} onChange={(v) => setField("node_probe_singbox_auto_download", v)} />
+                                {values.node_probe_singbox_auto_download && (
+                                    <div className="space-y-1.5">
+                                        <div className="text-base font-medium">{t("server.node_probe_singbox_version.title")}</div>
+                                        <Input placeholder={t("server.node_probe_singbox_version.placeholder")} value={values.node_probe_singbox_version ?? ""} onChange={(e) => setField("node_probe_singbox_version", e.target.value)} />
+                                        <p className="text-sm text-muted-foreground">{t("server.node_probe_singbox_version.description")}</p>
+                                    </div>
+                                )}
+                                <div className="space-y-1.5">
+                                    <div className="text-base font-medium">{t("server.node_probe_singbox_path.title")}</div>
+                                    <Input placeholder={t("server.node_probe_singbox_path.placeholder")} value={values.node_probe_singbox_path ?? ""} onChange={(e) => setField("node_probe_singbox_path", e.target.value)} />
+                                    <p className="text-sm text-muted-foreground">{t("server.node_probe_singbox_path.description")}</p>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <div className="text-base font-medium">{t("server.node_probe_ip_echo_url.title")}</div>
+                                    <Input placeholder={t("server.node_probe_ip_echo_url.placeholder")} value={values.node_probe_ip_echo_url ?? ""} onChange={(e) => setField("node_probe_ip_echo_url", e.target.value)} />
+                                    <p className="text-sm text-muted-foreground">{t("server.node_probe_ip_echo_url.description")}</p>
+                                </div>
+                            </>
+                        )}
+                        <div className="space-y-1.5">
+                            <div className="text-base font-medium">{t("server.server_latency_timeout_ms.title")}</div>
+                            <Input type="number" placeholder={t("server.server_latency_timeout_ms.placeholder")} value={values.server_latency_timeout_ms ?? ""} onChange={(e) => setField("server_latency_timeout_ms", e.target.value ? Number(e.target.value) : null)} />
+                            <p className="text-sm text-muted-foreground">{t("server.server_latency_timeout_ms.description")}</p>
+                        </div>
+                    </>
+                )}
+
+                <ToggleField label={t("server.server_auto_manage_visibility.title")} description={t("server.server_auto_manage_visibility.description")} checked={values.server_auto_manage_visibility ?? false} onChange={(v) => setField("server_auto_manage_visibility", v)} />
+
+                <ToggleField label={t("server.server_dedup_by_country.title")} description={t("server.server_dedup_by_country.description")} checked={values.server_dedup_by_country ?? false} onChange={(v) => setField("server_dedup_by_country", v)} />
+                {values.server_dedup_by_country && (
+                    <>
+                        <ToggleField label={t("server.server_country_naming.title")} description={t("server.server_country_naming.description")} checked={values.server_country_naming ?? true} onChange={(v) => setField("server_country_naming", v)} />
+                        <div className="space-y-1.5">
+                            <div className="text-base font-medium">{t("server.server_latency_stale_seconds.title")}</div>
+                            <Input type="number" placeholder={t("server.server_latency_stale_seconds.placeholder")} value={values.server_latency_stale_seconds ?? ""} onChange={(e) => setField("server_latency_stale_seconds", e.target.value ? Number(e.target.value) : null)} />
+                            <p className="text-sm text-muted-foreground">{t("server.server_latency_stale_seconds.description")}</p>
+                        </div>
+                        <div className="space-y-1.5">
+                            <div className="text-base font-medium">{t("server.geoip_method.title")}</div>
+                            <select
+                                className="inline-flex h-9 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                                value={values.geoip_method ?? "api"}
+                                onChange={(e) => setField("geoip_method", e.target.value)}
+                            >
+                                <option value="api">{t("server.geoip_method.api")}</option>
+                                <option value="maxmind">{t("server.geoip_method.maxmind")}</option>
+                            </select>
+                            <p className="text-sm text-muted-foreground">{t("server.geoip_method.description")}</p>
+                        </div>
+                        {values.geoip_method === "maxmind" && (
+                            <div className="space-y-1.5">
+                                <div className="text-base font-medium">{t("server.geoip_maxmind_db_path.title")}</div>
+                                <Input placeholder={t("server.geoip_maxmind_db_path.placeholder")} value={values.geoip_maxmind_db_path ?? ""} onChange={(e) => setField("geoip_maxmind_db_path", e.target.value)} />
+                                <p className="text-sm text-muted-foreground">{t("server.geoip_maxmind_db_path.description")}</p>
+                            </div>
+                        )}
+                    </>
+                )}
                 {saving && <div className="text-sm text-muted-foreground">{t("server.saving")}</div>}
             </div>
         </div>

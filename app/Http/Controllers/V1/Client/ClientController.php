@@ -95,6 +95,12 @@ class ClientController extends Controller
             $servers = HookManager::filter('client.subscribe.servers', $servers, $user, $request);
         }
 
+        // 「每个国家只下发一个节点」：仅在订阅下发时按国家去重、选最优，
+        // 不影响后台节点列表等共用 getAvailableServers 的地方。
+        if ((bool) admin_setting('server_dedup_by_country', false)) {
+            $servers = ServerService::pickBestPerCountry($servers);
+        }
+
         $clientInfo = $this->getClientInfo($request);
 
         $requestedTypes = $this->parseRequestedTypes($request->input('types'));

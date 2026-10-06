@@ -10,6 +10,7 @@ import debounce from "lodash/debounce";
 import isEqual from "lodash/isEqual";
 
 const DEFAULTS = {
+    user_web_login_enable: true,
     email_verify: false, safe_mode_enable: false, secure_path: "",
     email_whitelist_enable: false, email_whitelist_suffix: [],
     email_gmail_limit_enable: false, captcha_enable: false, captcha_type: "recaptcha",
@@ -80,6 +81,7 @@ export function SafeSettings() {
             <p className="text-sm text-muted-foreground">{t("safe.description")}</p>
             <hr className="my-6" />
             <div className="space-y-4">
+                <ToggleField label={t("safe.form.userWebLogin.label")} description={t("safe.form.userWebLogin.description")} checked={values.user_web_login_enable} onChange={(v) => setField("user_web_login_enable", v)} />
                 <ToggleField label={t("safe.form.emailVerify.label")} description={t("safe.form.emailVerify.description")} checked={values.email_verify} onChange={(v) => setField("email_verify", v)} />
                 <ToggleField label={t("safe.form.gmailLimit.label")} description={t("safe.form.gmailLimit.description")} checked={values.email_gmail_limit_enable} onChange={(v) => setField("email_gmail_limit_enable", v)} />
                 <ToggleField label={t("safe.form.safeMode.label")} description={t("safe.form.safeMode.description")} checked={values.safe_mode_enable} onChange={(v) => setField("safe_mode_enable", v)} />

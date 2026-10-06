@@ -83,6 +83,203 @@ class ServerService
     }
 
     /**
+     * 「每个国家只下发一个节点」：按国家去重，每组选最优的一个。
+     *
+     * 仅在订阅下发路径调用（ClientController::doSubscribe），不影响后台节点列表等
+     * 其它共用 getAvailableServers 的地方。入参/出参都是 getAvailableServers 产出的
+     * 数组（含 is_online / online / country_code / latency_ms / last_latency_at）。
+     *
+     * 规则：
+     *  1. 可用性以 agent 上报的 is_online 为准（协议无关），先剔除离线节点；
+     *  2. 有 country_code 的按国家分组，每组优先取「延迟新鲜且最低」者，
+     *     若全组无有效延迟（如 UDP 节点 ping 不到）则按在线人数/ sort 兜底取一个；
+     *  3. 没有 country_code 的节点原样保留（不参与去重，避免误删）；
+     *  4. server_country_naming 开启时，把入选节点名规范成「🇺🇸 国家名」，
+     *     便于客户端按国家分组与显示旗帜。
+     *
+     * @param  array  $servers
+     * @return array
+     */
+    public static function pickBestPerCountry(array $servers): array
+    {
+        $now = time();
+        $stale = (int) admin_setting('server_latency_stale_seconds', 600);
+        $naming = (bool) admin_setting('server_country_naming', true);
+
+        $noCountry = [];
+        $byCountry = [];
+        foreach ($servers as $server) {
+            if (empty($server['is_online'])) {
+                continue; // 离线节点不下发
+            }
+            $cc = $server['country_code'] ?? null;
+            if (blank($cc)) {
+                $noCountry[] = $server;
+            } else {
+                $byCountry[strtoupper($cc)][] = $server;
+            }
+        }
+
+        $picked = [];
+        foreach ($byCountry as $cc => $group) {
+            $best = self::chooseBestInCountry($group, $now, $stale);
+            if ($naming) {
+                $best['name'] = self::countryDisplayName($cc);
+            }
+            $picked[] = $best;
+        }
+
+        $result = array_merge($picked, $noCountry);
+        // 稳定排序，避免客户端里节点顺序乱跳
+        usort($result, fn($a, $b) => ($a['sort'] ?? 0) <=> ($b['sort'] ?? 0));
+        return array_values($result);
+    }
+
+    /**
+     * 在同一国家的候选里选最优：优先延迟新鲜且最低者；否则按在线人数、sort 兜底。
+     */
+    private static function chooseBestInCountry(array $group, int $now, int $stale): array
+    {
+        $fresh = array_values(array_filter($group, function ($s) use ($now, $stale) {
+            return ($s['latency_ms'] ?? null) !== null
+                && !empty($s['last_latency_at'])
+                && ($now - (int) $s['last_latency_at']) <= $stale;
+        }));
+
+        if (!empty($fresh)) {
+            usort($fresh, fn($a, $b) => (int) $a['latency_ms'] <=> (int) $b['latency_ms']);
+            return $fresh[0];
+        }
+
+        usort($group, function ($a, $b) {
+            $oa = (int) ($a['online'] ?? 0);
+            $ob = (int) ($b['online'] ?? 0);
+            if ($oa !== $ob) {
+                return $oa <=> $ob; // 在线人数少的优先
+            }
+            return ($a['sort'] ?? 0) <=> ($b['sort'] ?? 0);
+        });
+        return $group[0];
+    }
+
+    /**
+     * 国家码 -> 「🇺🇸 国家名」。旗帜由两位国家码转 regional-indicator 计算；
+     * 国家名用常见国家中文映射，未收录时回退到国家码本身。
+     */
+    public static function countryDisplayName(string $cc): string
+    {
+        $cc = strtoupper($cc);
+        $name = self::COUNTRY_NAMES_ZH[$cc] ?? $cc;
+        return self::countryFlag($cc) . ' ' . $name;
+    }
+
+    /**
+     * 两位 ISO 国家码 -> 旗帜 emoji（regional indicator symbols）。
+     */
+    public static function countryFlag(string $cc): string
+    {
+        $cc = strtoupper($cc);
+        if (strlen($cc) !== 2 || !ctype_alpha($cc)) {
+            return '🏳️';
+        }
+        $flag = '';
+        foreach (str_split($cc) as $ch) {
+            $flag .= mb_chr(0x1F1E6 + (ord($ch) - ord('A')), 'UTF-8');
+        }
+        return $flag;
+    }
+
+    /**
+     * 从节点名解析国家码（ISO alpha-2 大写），解析不到返回 null。
+     *
+     * 对「中转/relay」节点，host 的 GeoIP 是入口国（常是国内），而落地国通常写在
+     * 节点名里（🇯🇵 / 日本 / JP）。所以 tcp 探测模式下优先用节点名判国家。
+     * 优先级：旗帜 emoji > 中文名关键词 > 英文名/国家码关键词。
+     */
+    public static function parseCountryFromName(?string $name): ?string
+    {
+        if (blank($name)) {
+            return null;
+        }
+
+        // 1) 旗帜 emoji：两个连续的 regional indicator symbol（U+1F1E6..U+1F1FF）
+        if (preg_match_all('/[\x{1F1E6}-\x{1F1FF}]/u', $name, $m) && count($m[0]) >= 2) {
+            $a = mb_ord($m[0][0], 'UTF-8') - 0x1F1E6;
+            $b = mb_ord($m[0][1], 'UTF-8') - 0x1F1E6;
+            if ($a >= 0 && $a < 26 && $b >= 0 && $b < 26) {
+                return chr(ord('A') + $a) . chr(ord('A') + $b);
+            }
+        }
+
+        // 2) 中文名关键词（含常见别名）
+        foreach (self::COUNTRY_NAME_ALIASES as $cc => $aliases) {
+            foreach ($aliases as $kw) {
+                if (mb_strpos($name, $kw) !== false) {
+                    return $cc;
+                }
+            }
+        }
+
+        // 3) 英文名 / 国家码（按单词边界，避免 "US" 命中 "Russia" 之类的误伤）
+        $upper = strtoupper($name);
+        foreach (self::COUNTRY_EN_KEYWORDS as $cc => $kws) {
+            foreach ($kws as $kw) {
+                if (preg_match('/\b' . preg_quote($kw, '/') . '\b/', $upper)) {
+                    return $cc;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** 中文名/别名关键词 -> 国家码（用于 parseCountryFromName） */
+    private const COUNTRY_NAME_ALIASES = [
+        'HK' => ['香港', '港'], 'TW' => ['台湾', '臺灣', '台'], 'MO' => ['澳门', '澳門'],
+        'JP' => ['日本', '东京', '大阪'], 'KR' => ['韩国', '韓國', '首尔'],
+        'SG' => ['新加坡', '狮城'], 'MY' => ['马来', '馬來'], 'TH' => ['泰国', '泰國'],
+        'VN' => ['越南'], 'PH' => ['菲律宾', '菲律賓'], 'ID' => ['印尼', '印度尼西亚'],
+        'IN' => ['印度'], 'TR' => ['土耳其'], 'AE' => ['阿联酋', '迪拜'], 'IL' => ['以色列'],
+        'US' => ['美国', '美國', '洛杉矶', '硅谷', '圣何塞', '纽约'], 'CA' => ['加拿大'],
+        'MX' => ['墨西哥'], 'BR' => ['巴西'], 'AR' => ['阿根廷'], 'GB' => ['英国', '英國', '伦敦'],
+        'DE' => ['德国', '德國', '法兰克福'], 'FR' => ['法国', '法國', '巴黎'],
+        'NL' => ['荷兰', '荷蘭', '阿姆斯特丹'], 'RU' => ['俄罗斯', '俄羅斯', '莫斯科'],
+        'UA' => ['乌克兰', '烏克蘭'], 'IT' => ['意大利'], 'ES' => ['西班牙'], 'PT' => ['葡萄牙'],
+        'SE' => ['瑞典'], 'NO' => ['挪威'], 'FI' => ['芬兰', '芬蘭'], 'DK' => ['丹麦', '丹麥'],
+        'PL' => ['波兰', '波蘭'], 'CH' => ['瑞士'], 'AT' => ['奥地利', '奧地利'],
+        'IE' => ['爱尔兰', '愛爾蘭'], 'BE' => ['比利时', '比利時'], 'CZ' => ['捷克'],
+        'RO' => ['罗马尼亚', '羅馬尼亞'], 'AU' => ['澳大利亚', '澳洲', '悉尼', '墨尔本'],
+        'NZ' => ['新西兰', '紐西蘭'], 'ZA' => ['南非'], 'CN' => ['中国', '中國', '大陆', '回国'],
+    ];
+
+    /** 英文名/国家码关键词（大写，按单词边界匹配） */
+    private const COUNTRY_EN_KEYWORDS = [
+        'HK' => ['HK', 'HONG KONG'], 'TW' => ['TW', 'TAIWAN'], 'JP' => ['JP', 'JAPAN', 'TOKYO'],
+        'KR' => ['KR', 'KOREA', 'SEOUL'], 'SG' => ['SG', 'SINGAPORE'], 'US' => ['US', 'USA', 'UNITED STATES', 'LOS ANGELES'],
+        'GB' => ['GB', 'UK', 'UNITED KINGDOM', 'LONDON'], 'DE' => ['DE', 'GERMANY'], 'FR' => ['FR', 'FRANCE', 'PARIS'],
+        'NL' => ['NL', 'NETHERLANDS'], 'RU' => ['RU', 'RUSSIA'], 'CA' => ['CA', 'CANADA'], 'AU' => ['AU', 'AUSTRALIA'],
+        'MY' => ['MY', 'MALAYSIA'], 'TH' => ['TH', 'THAILAND'], 'VN' => ['VN', 'VIETNAM'], 'IN' => ['IN', 'INDIA'],
+        'TR' => ['TR', 'TURKEY'], 'AE' => ['AE', 'DUBAI'], 'CN' => ['CN', 'CHINA'],
+    ];
+
+    /**
+     * 常见国家/地区中文名映射（非穷举，未收录回退到国家码）。
+     */
+    private const COUNTRY_NAMES_ZH = [
+        'HK' => '香港', 'TW' => '台湾', 'MO' => '澳门', 'CN' => '中国大陆',
+        'JP' => '日本', 'KR' => '韩国', 'SG' => '新加坡', 'MY' => '马来西亚',
+        'TH' => '泰国', 'VN' => '越南', 'PH' => '菲律宾', 'ID' => '印尼',
+        'IN' => '印度', 'TR' => '土耳其', 'AE' => '阿联酋', 'IL' => '以色列',
+        'US' => '美国', 'CA' => '加拿大', 'MX' => '墨西哥', 'BR' => '巴西',
+        'AR' => '阿根廷', 'GB' => '英国', 'DE' => '德国', 'FR' => '法国',
+        'NL' => '荷兰', 'RU' => '俄罗斯', 'UA' => '乌克兰', 'IT' => '意大利',
+        'ES' => '西班牙', 'PT' => '葡萄牙', 'SE' => '瑞典', 'NO' => '挪威',
+        'FI' => '芬兰', 'DK' => '丹麦', 'PL' => '波兰', 'CH' => '瑞士',
+        'AT' => '奥地利', 'IE' => '爱尔兰', 'BE' => '比利时', 'CZ' => '捷克',
+        'RO' => '罗马尼亚', 'AU' => '澳大利亚', 'NZ' => '新西兰', 'ZA' => '南非',
+    ];
+
+    /**
      * 计算一组节点的「版本号」。
      *
      * 基于每个节点的 cache_key（见 Server::cacheKey，内含 updated_at 与

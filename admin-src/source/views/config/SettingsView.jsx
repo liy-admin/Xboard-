@@ -5,11 +5,13 @@ import { useTranslation } from "../../i18n/index.js";
 import { useAuthState } from "../../store/auth.js";
 import { HeaderControls } from "../home/DashboardView.jsx";
 import { SiteSettings } from "./SiteSettings.jsx";
+import { WebsiteSettings } from "./WebsiteSettings.jsx";
 import { SafeSettings } from "./SafeSettings.jsx";
 import { SubscribeSettings } from "./SubscribeSettings.jsx";
 import { InviteSettings } from "./InviteSettings.jsx";
 import { LuckyDrawSettings } from "./LuckyDrawSettings.jsx";
 import { DiscoverSettings } from "./DiscoverSettings.jsx";
+import { AntiLossSettings } from "./AntiLossSettings.jsx";
 import { AdBannerSettings } from "./AdBannerSettings.jsx";
 import { SupportSettings } from "./SupportSettings.jsx";
 import { FrontendSettings } from "./FrontendSettings.jsx";
@@ -21,11 +23,13 @@ import { SubscribeTemplateSettings } from "./SubscribeTemplateSettings.jsx";
 
 const TAB_MAP = {
     "/config/system": SiteSettings,
+    "/config/system/website": WebsiteSettings,
     "/config/system/safe": SafeSettings,
     "/config/system/subscribe": SubscribeSettings,
     "/config/system/invite": InviteSettings,
     "/config/system/lucky-draw": LuckyDrawSettings,
     "/config/system/discover": DiscoverSettings,
+    "/config/system/anti-loss": AntiLossSettings,
     "/config/system/ad-banner": AdBannerSettings,
     "/config/system/support": SupportSettings,
     "/config/system/frontend": FrontendSettings,

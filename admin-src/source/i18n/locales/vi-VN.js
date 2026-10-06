@@ -851,6 +851,14 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "title": "Người dùng online",
         "tooltip": "Số lượng người dùng online dựa trên tần suất báo cáo của server"
       },
+      "latency": {
+        "title": "Đo tốc độ",
+        "tooltip": "Kết quả đo của panel: độ trễ / quốc gia / IP lối ra thật / thời gian đo",
+        "untested": "Chưa đo",
+        "unreachable": "Không truy cập được",
+        "exit": "Lối ra",
+        "testedAt": "Đo lúc"
+      },
       "rate": {
         "title": "Hệ số",
         "tooltip": "Hệ số tính phí traffic"
@@ -1788,6 +1796,71 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "description": "Địa chỉ WebSocket để node kết nối. Để trống để dùng URL trang web.",
         "placeholder": "Để trống để dùng URL trang web"
       },
+      "latency_section": "Đo tốc độ & phân phối theo quốc gia",
+      "server_latency_probe_enable": {
+        "title": "Bật tự động đo tốc độ",
+        "description": "Định kỳ đo độ trễ của từng node và tự động xác định quốc gia. Tắt để ngừng đo."
+      },
+      "node_probe_mode": {
+        "title": "Phương thức đo",
+        "description": "TCP: TCP handshake để đo độ trễ, quốc gia ưu tiên lấy từ tên node (nhẹ, không cần phụ thuộc thêm). sing-box: panel thực sự chạy từng node qua lõi sing-box để đo IP lối ra thật, độ trễ và quốc gia đích — chính xác cả với node trung chuyển, nhưng cần cài sing-box trên máy chủ panel.",
+        "tcp": "TCP handshake (nhẹ)",
+        "singbox": "Chạy sing-box (chính xác nhất)",
+        "singbox_hint": "Khi bật tự động tải, panel sẽ tự tải và lưu sing-box từ bản phát hành chính thức — không cần cài thủ công. Panel khởi tạo một kết nối sing-box cho mỗi node và yêu cầu IP echo, khá chậm — nên nới rộng chu kỳ đo.",
+        "singbox_unavailable": "Không phát hiện sing-box khả dụng; sẽ quay về chế độ TCP."
+      },
+      "node_probe_singbox_auto_download": {
+        "title": "Tự động tải sing-box",
+        "description": "Khi máy chủ panel chưa có sing-box, tự tải, giải nén và lưu từ bản phát hành GitHub chính thức theo OS/kiến trúc của máy chủ — không cần cài thủ công."
+      },
+      "node_probe_singbox_version": {
+        "title": "Phiên bản sing-box",
+        "description": "Phiên bản tự động tải (tag phát hành chính thức, không có chữ v đầu).",
+        "placeholder": "1.14.2"
+      },
+      "node_probe_singbox_path": {
+        "title": "Đường dẫn sing-box (tùy chọn)",
+        "description": "Đường dẫn hoặc tên lệnh sing-box tùy chỉnh; để trống để dùng bản tự động tải.",
+        "placeholder": "Để trống để tự động tải"
+      },
+      "node_probe_ip_echo_url": {
+        "title": "URL IP echo",
+        "description": "URL được truy cập qua node để lấy IP lối ra thật và quốc gia. Mặc định dùng ip-api.com (trả về IP lối ra và mã quốc gia).",
+        "placeholder": "http://ip-api.com/json/?fields=status,countryCode,query"
+      },
+      "server_latency_timeout_ms": {
+        "title": "Thời gian chờ đo (ms)",
+        "description": "Thời gian chờ mỗi lần đo node, khoảng 200–10000, mặc định 2000.",
+        "placeholder": "2000"
+      },
+      "server_auto_manage_visibility": {
+        "title": "Tự động ẩn/hiện node theo kết quả đo",
+        "description": "Khi bật, tác vụ đo sẽ kiểm tra tất cả node (kể cả node đang ẩn) và tự động hiện node khả dụng có độ trễ thấp nhất mỗi quốc gia (cùng các node khả dụng không rõ quốc gia), ẩn phần còn lại, để trạng thái ẩn/hiện phản ánh đúng những gì được phân phối. Nếu node đang dùng bị rớt, node dự phòng cùng quốc gia sẽ tự được kích hoạt."
+      },
+      "server_dedup_by_country": {
+        "title": "Chỉ phân phối một node mỗi quốc gia",
+        "description": "Khi bật, đăng ký chỉ gửi node khả dụng có độ trễ thấp nhất cho mỗi quốc gia; node không rõ quốc gia được giữ nguyên. Chỉ ảnh hưởng đăng ký của client, không ảnh hưởng danh sách node quản trị. Không cần bật nếu đã bật \"tự động ẩn/hiện\" ở trên."
+      },
+      "server_country_naming": {
+        "title": "Đổi tên node theo quốc gia",
+        "description": "Đổi tên node được chọn thành \"🇺🇸 Quốc gia\" để client nhóm theo quốc gia và hiển thị cờ."
+      },
+      "server_latency_stale_seconds": {
+        "title": "Hiệu lực độ trễ (giây)",
+        "description": "Độ trễ cũ hơn mức này sẽ không dùng để xếp hạng \"nhanh nhất\" theo quốc gia (node vẫn khả dụng). Mặc định 600.",
+        "placeholder": "600"
+      },
+      "geoip_method": {
+        "title": "Phương thức xác định quốc gia",
+        "description": "api: phân giải trực tuyến qua ip-api.com (miễn phí, không cần cấu hình); maxmind: cơ sở dữ liệu GeoLite2 cục bộ (cần tệp mmdb riêng, chưa hỗ trợ, sẽ quay về api).",
+        "api": "API trực tuyến (ip-api.com)",
+        "maxmind": "CSDL MaxMind cục bộ"
+      },
+      "geoip_maxmind_db_path": {
+        "title": "Đường dẫn cơ sở dữ liệu MaxMind",
+        "description": "Đường dẫn tuyệt đối đến GeoLite2-Country.mmdb.",
+        "placeholder": "/path/to/GeoLite2-Country.mmdb"
+      },
       "saving": "Đang lưu..."
     },
     "invite": {
@@ -1944,6 +2017,10 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
       "title": "Bảo mật",
       "description": "Cài đặt bảo vệ: captcha, giới hạn mật khẩu, whitelist Email và các tham số khác.",
       "form": {
+        "userWebLogin": {
+          "label": "Cho phép người dùng đăng nhập web",
+          "description": "Khi tắt, người dùng thường không thể đăng nhập qua web (/#/login) mà phải dùng App; việc đăng nhập trang quản trị của super admin không bị ảnh hưởng."
+        },
         "emailVerify": {
           "label": "Xác thực Email",
           "description": "Bắt buộc xác nhận email khi đăng ký."
@@ -2303,7 +2380,24 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "sending": "Đang gửi...",
         "description": "Kiểm tra cài đặt bằng cách gửi email cho chính mình",
         "success": "Gửi email thành công",
-        "error": "Lỗi khi gửi test"
+        "error": "Lỗi khi gửi test",
+        "recipient": "Người nhận",
+        "recipient_placeholder": "Để trống để gửi tới email quản trị hiện tại",
+        "recipient_description": "Email thử nghiệm sẽ gửi tới địa chỉ này (thay đổi hiện tại sẽ được lưu trước)",
+        "saving": "Đang lưu...",
+        "fail_title": "Gửi email thất bại",
+        "fail_description": "Đã xảy ra lỗi khi gửi email thử nghiệm, xem nguyên nhân bên dưới",
+        "success_description": "Email thử nghiệm đã được gửi, vui lòng kiểm tra hộp thư (kể cả thư rác)",
+        "field_to": "Địa chỉ nhận",
+        "field_subject": "Chủ đề",
+        "field_template": "Tên mẫu",
+        "hint": {
+          "dns": "Không phân giải được tên miền SMTP: kiểm tra lại địa chỉ máy chủ và DNS.",
+          "connect": "Không kết nối được máy chủ SMTP: kiểm tra host/port và xem máy chủ hoặc nhà cung cấp có chặn cổng 25/465/587 không.",
+          "auth": "Xác thực SMTP thất bại: kiểm tra tài khoản và mật khẩu (nhiều hộp thư cần mật khẩu ứng dụng).",
+          "ssl": "Bắt tay mã hóa thất bại: kiểm tra kiểu mã hóa khớp với cổng (465 thường là SSL, 587 thường là TLS).",
+          "unknown": "Hãy kiểm tra cấu hình SMTP dựa trên thông báo lỗi ở trên."
+        }
       }
     },
     "telegram": {

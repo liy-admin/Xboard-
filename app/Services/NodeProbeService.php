@@ -1,0 +1,358 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Server;
+use App\Models\User;
+use App\Protocols\SingBoxProbe;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * 节点探测：测延迟 + 判国家。两种模式：
+ *
+ *  - singbox（最准确）：面板用 sing-box 核心实际跑一遍该节点，请求 IP 回显服务拿到
+ *    「真实出口 IP」，对出口 IP 判国家、以请求耗时作为真实代理延迟。能正确识别中转
+ *    节点的落地国（入口在国内、落地在日本的节点会被判为日本）。需面板宿主机装 sing-box。
+ *
+ *  - tcp（轻量兜底）：对 host 做 TCP 握手测延迟（多次取最低），国家优先从节点名解析
+ *    （中转节点名里一般写落地国），解析不到再对 host 做 GeoIP（入口国，可能不准）。
+ *
+ * 返回：['ok'=>bool,'latency_ms'=>?int,'exit_ip'=>?string,'country_code'=>?string,'error'=>?string]
+ */
+class NodeProbeService
+{
+    public function __construct(
+        private GeoIpService $geoip,
+        private SingBoxBinaryService $singbox,
+    ) {
+    }
+
+    public function probe(Server $node): array
+    {
+        $mode = admin_setting('node_probe_mode', 'tcp');
+        if ($mode === 'singbox') {
+            $result = $this->probeViaSingbox($node);
+            // sing-box 不可用 / 失败时回退到 tcp，至少还能拿到延迟与名字判国家
+            if (!$result['ok'] && ($result['fallback'] ?? false)) {
+                $tcp = $this->probeViaTcp($node);
+                $tcp['error'] = $result['error'];
+                return $tcp;
+            }
+            return $result;
+        }
+        return $this->probeViaTcp($node);
+    }
+
+    // ---------------------------------------------------------------------
+    // 轻量模式：TCP 握手 + 名字/GeoIP 判国家
+    // ---------------------------------------------------------------------
+
+    private function probeViaTcp(Server $node): array
+    {
+        $timeoutMs = $this->timeoutMs();
+        $transport = $node->protocolTransport();
+
+        $latency = $transport === 'udp'
+            ? $this->pingHost($node->host, $timeoutMs)
+            : $this->tcpConnectBest($node->host, $this->firstPort($node->port), $timeoutMs);
+
+        // 国家：先从节点名解析（中转节点落地国通常写在名字里），再 GeoIP(host) 兜底
+        $cc = ServerService::parseCountryFromName($node->name);
+        if (!$cc) {
+            $cc = $this->geoip->lookupCountries([$node->host])[$node->host] ?? null;
+        }
+
+        return [
+            'ok' => $latency !== null,
+            'latency_ms' => $latency,
+            'exit_ip' => null,
+            'country_code' => $cc,
+            'error' => $latency === null ? 'tcp/ping 探测失败' : null,
+        ];
+    }
+
+    /** TCP 握手测延迟，连 3 次取最低，避免「首包慢」误判。失败返回 null。 */
+    private function tcpConnectBest(string $host, int $port, int $timeoutMs): ?int
+    {
+        if ($port <= 0) {
+            return null;
+        }
+        $best = null;
+        for ($i = 0; $i < 3; $i++) {
+            $start = microtime(true);
+            $errno = 0;
+            $errstr = '';
+            $conn = @stream_socket_client("tcp://{$host}:{$port}", $errno, $errstr, $timeoutMs / 1000, STREAM_CLIENT_CONNECT);
+            if ($conn !== false) {
+                $ms = (int) round((microtime(true) - $start) * 1000);
+                $best = $best === null ? $ms : min($best, $ms);
+                fclose($conn);
+            }
+            usleep(150_000);
+        }
+        return $best;
+    }
+
+    /** ICMP ping 测延迟（Linux 风格）；不可用返回 null。 */
+    private function pingHost(string $host, int $timeoutMs): ?int
+    {
+        if (!$this->execUsable()) {
+            return null;
+        }
+        $waitSec = max(1, (int) ceil($timeoutMs / 1000));
+        $cmd = sprintf('ping -c 1 -W %d %s 2>/dev/null', $waitSec, escapeshellarg($host));
+        $output = [];
+        $code = 0;
+        @exec($cmd, $output, $code);
+        if ($code !== 0) {
+            return null;
+        }
+        foreach ($output as $line) {
+            if (preg_match('/time[=<]\s*([\d.]+)\s*ms/i', $line, $m)) {
+                return (int) round((float) $m[1]);
+            }
+        }
+        return null;
+    }
+
+    // ---------------------------------------------------------------------
+    // 精确模式：sing-box 实跑 + 真实出口 IP
+    // ---------------------------------------------------------------------
+
+    private function probeViaSingbox(Server $node): array
+    {
+        $fail = fn(string $err, bool $fallback = true) => [
+            'ok' => false, 'latency_ms' => null, 'exit_ip' => null,
+            'country_code' => null, 'error' => $err, 'fallback' => $fallback,
+        ];
+
+        if (!function_exists('proc_open')) {
+            return $fail('proc_open 不可用，无法启动 sing-box');
+        }
+        // 自动解析/下载 sing-box 二进制（宿主机没装就从官方下载并缓存）
+        $binary = $this->singbox->resolve();
+        if (!$binary) {
+            return $fail('sing-box 不可用（自动下载失败，可在后台填自定义路径）');
+        }
+
+        // 1) 取一个有权限访问该节点的真实用户，复用订阅那套逻辑生成 outbound
+        $outbound = $this->buildOutbound($node);
+        if (!$outbound) {
+            return $fail('无法为该节点生成 sing-box outbound（无可用用户或协议不受支持）');
+        }
+        $outbound['tag'] = 'proxy';
+
+        // 预解析服务器域名为 IP 填回 server：否则 sing-box 要先解析该域名才能连节点，
+        // 而 DNS 查询在 route.final=proxy 下会被塞进「还没连上的节点」，造成死锁超时。
+        // 域名改成 IP 后，连接节点时不再需要 DNS。若节点是 TLS 且没显式 SNI，则把原
+        // 域名补到 tls.server_name，避免 SNI 变成 IP 导致握手失败。
+        $origServer = $outbound['server'] ?? $node->host;
+        if (!filter_var($origServer, FILTER_VALIDATE_IP)) {
+            $ip = @gethostbyname($origServer);
+            if ($ip && $ip !== $origServer && filter_var($ip, FILTER_VALIDATE_IP)) {
+                $outbound['server'] = $ip;
+                if (isset($outbound['tls']) && is_array($outbound['tls']) && empty($outbound['tls']['server_name'])) {
+                    $outbound['tls']['server_name'] = $origServer;
+                }
+            }
+        }
+
+        // 2) 分配本地端口 + 写临时配置
+        $port = $this->freeLocalPort();
+        if (!$port) {
+            return $fail('无法分配本地端口');
+        }
+        // dns 块必须有：socks5h 会把回显域名（ip-api.com）交给 sing-box 解析，没有
+        // dns 服务器就无法解析。server 已是 IP，连节点不触发 DNS，所以这里不设 detour：
+        // 回显域名在节点连上后经代理解析（也正好反映出口侧）。
+        $dnsServer = (string) admin_setting('node_probe_dns', '1.1.1.1');
+        $config = [
+            'log' => ['level' => 'error'],
+            'dns' => ['servers' => [['type' => 'udp', 'tag' => 'r', 'server' => $dnsServer]]],
+            'inbounds' => [[
+                'type' => 'mixed',
+                'tag' => 'in',
+                'listen' => '127.0.0.1',
+                'listen_port' => $port,
+            ]],
+            'outbounds' => [$outbound, ['type' => 'direct', 'tag' => 'direct']],
+            'route' => ['final' => 'proxy'],
+        ];
+        $cfgPath = tempnam(sys_get_temp_dir(), 'sbprobe_') . '.json';
+        file_put_contents($cfgPath, json_encode($config, JSON_UNESCAPED_UNICODE));
+
+        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $proc = @proc_open([$binary, 'run', '-c', $cfgPath], $descriptors, $pipes);
+        if (!is_resource($proc)) {
+            @unlink($cfgPath);
+            return $fail("无法启动 sing-box（检查 node_probe_singbox_path：{$binary}）");
+        }
+        foreach ([1, 2] as $i) {
+            if (isset($pipes[$i])) {
+                stream_set_blocking($pipes[$i], false);
+            }
+        }
+
+        try {
+            // 3) 等本地入站端口就绪
+            if (!$this->waitPort($port, 6000)) {
+                $stderr = isset($pipes[2]) ? stream_get_contents($pipes[2]) : '';
+                return $fail('sing-box 入站端口未就绪：' . trim(mb_substr($stderr, 0, 300)), false);
+            }
+
+            // 4) 通过本地代理请求 IP 回显，拿真实出口 IP + 国家 + 真实延迟
+            $echoUrl = (string) admin_setting('node_probe_ip_echo_url', 'http://ip-api.com/json/?fields=status,countryCode,query');
+            $timeoutMs = $this->timeoutMs();
+
+            $start = microtime(true);
+            $resp = Http::withOptions([
+                'proxy' => "socks5h://127.0.0.1:{$port}",
+                'timeout' => max(2, (int) ceil($timeoutMs / 1000) + 5),
+            ])->get($echoUrl);
+            $latency = (int) round((microtime(true) - $start) * 1000);
+
+            if (!$resp->ok()) {
+                return $fail('通过节点请求 IP 回显失败：HTTP ' . $resp->status(), false);
+            }
+
+            [$exitIp, $cc] = $this->parseEcho($resp->json(), $resp->body());
+            if (!$exitIp) {
+                return $fail('IP 回显解析失败', false);
+            }
+            if (!$cc) {
+                $cc = $this->geoip->lookupCountries([$exitIp])[$exitIp] ?? null;
+            }
+
+            return [
+                'ok' => true,
+                'latency_ms' => $latency,
+                'exit_ip' => $exitIp,
+                'country_code' => $cc ? strtoupper($cc) : null,
+                'error' => null,
+            ];
+        } catch (\Throwable $e) {
+            return $fail('sing-box 探测异常：' . $e->getMessage(), false);
+        } finally {
+            foreach ($pipes as $p) {
+                if (is_resource($p)) {
+                    fclose($p);
+                }
+            }
+            if (is_resource($proc)) {
+                @proc_terminate($proc);
+                @proc_close($proc);
+            }
+            @unlink($cfgPath);
+        }
+    }
+
+    /** 复用订阅逻辑：取可用用户 -> getAvailableServers -> 生成单节点 outbound。 */
+    private function buildOutbound(Server $node): ?array
+    {
+        $groupIds = $node->group_ids ?? [];
+        if (empty($groupIds)) {
+            return null;
+        }
+        $user = User::whereIn('group_id', $groupIds)
+            ->where('banned', 0)
+            ->where(function ($q) {
+                $q->whereNull('expired_at')->orWhere('expired_at', '>=', time());
+            })
+            ->first();
+        if (!$user) {
+            return null;
+        }
+
+        $servers = ServerService::getAvailableServers($user);
+        $target = collect($servers)->firstWhere('id', $node->id);
+        if (!$target) {
+            return null;
+        }
+
+        try {
+            return (new SingBoxProbe($user, [$target]))->buildSingleOutbound();
+        } catch (\Throwable $e) {
+            Log::warning('NodeProbeService: 生成 outbound 失败', ['node' => $node->id, 'message' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /** 解析 IP 回显响应：返回 [exitIp, countryCode|null]。 */
+    private function parseEcho(?array $json, string $body): array
+    {
+        if (is_array($json)) {
+            // ip-api.com: {status, countryCode, query}
+            $ip = $json['query'] ?? $json['ip'] ?? ($json['YourFuckingIPAddress'] ?? null);
+            $cc = $json['countryCode'] ?? $json['country_code'] ?? ($json['country'] ?? null);
+            if ($ip) {
+                return [$ip, is_string($cc) && strlen($cc) === 2 ? $cc : null];
+            }
+        }
+        // 纯文本回显（只有 IP）
+        $body = trim($body);
+        if (filter_var($body, FILTER_VALIDATE_IP)) {
+            return [$body, null];
+        }
+        return [null, null];
+    }
+
+    // ---------------------------------------------------------------------
+    // 工具
+    // ---------------------------------------------------------------------
+
+    private function timeoutMs(): int
+    {
+        $t = (int) admin_setting('server_latency_timeout_ms', 2000);
+        return max(200, min($t, 10000));
+    }
+
+    private function execUsable(): bool
+    {
+        if (!function_exists('exec')) {
+            return false;
+        }
+        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+        return !in_array('exec', $disabled, true);
+    }
+
+    private function firstPort(string|int|null $port): int
+    {
+        if ($port === null) {
+            return 0;
+        }
+        $port = (string) $port;
+        if (str_contains($port, '-')) {
+            $port = explode('-', $port)[0];
+        }
+        return (int) trim($port);
+    }
+
+    /** 让系统分配一个空闲本地端口。 */
+    private function freeLocalPort(): ?int
+    {
+        $sock = @stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
+        if (!$sock) {
+            return null;
+        }
+        $name = stream_socket_get_name($sock, false);
+        fclose($sock);
+        $port = (int) substr($name, strrpos($name, ':') + 1);
+        return $port ?: null;
+    }
+
+    /** 轮询等待本地端口可连接。 */
+    private function waitPort(int $port, int $timeoutMs): bool
+    {
+        $deadline = microtime(true) + $timeoutMs / 1000;
+        while (microtime(true) < $deadline) {
+            $c = @stream_socket_client("tcp://127.0.0.1:{$port}", $errno, $errstr, 0.3);
+            if ($c !== false) {
+                fclose($c);
+                return true;
+            }
+            usleep(200_000);
+        }
+        return false;
+    }
+}

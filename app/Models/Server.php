@@ -133,6 +133,17 @@ class Server extends Model
         'u' => 'integer',
         'd' => 'integer',
         'machine_id' => 'integer',
+        'latency_ms' => 'integer',
+        'last_latency_at' => 'integer',
+    ];
+
+    /**
+     * 走 UDP/QUIC 的协议类型。这些协议端口上没有 TCP 监听，面板不能用 TCP 握手
+     * 测速，只能对 host 做 ICMP ping 估算延迟（见 CheckServerLatency）。
+     */
+    public const UDP_TYPES = [
+        self::TYPE_HYSTERIA,
+        self::TYPE_TUIC,
     ];
 
     private const MULTIPLEX_CONFIGURATION = [
@@ -403,6 +414,32 @@ class Server extends Model
     public static function isValidType(?string $type): bool
     {
         return $type ? in_array(self::normalizeType($type), self::VALID_TYPES, true) : true;
+    }
+
+    /**
+     * 该节点测速应使用的传输层：'udp'（走 ICMP ping）或 'tcp'（走 TCP 握手）。
+     * 见 CheckServerLatency 命令。
+     */
+    public function protocolTransport(): string
+    {
+        return in_array($this->type, self::UDP_TYPES, true) ? 'udp' : 'tcp';
+    }
+
+    /**
+     * latency_ms 是否仍然「新鲜」、可用于排序。超过 server_latency_stale_seconds
+     * 的旧延迟值不再参与「每国选最快」，但不影响节点可用性（可用性看 is_online）。
+     */
+    protected function latencyFresh(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                if ($this->latency_ms === null || !$this->last_latency_at) {
+                    return false;
+                }
+                $stale = (int) admin_setting('server_latency_stale_seconds', 600);
+                return (time() - $this->last_latency_at) <= $stale;
+            }
+        );
     }
 
     public function getAvailableStatusAttribute(): int

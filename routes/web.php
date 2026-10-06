@@ -20,6 +20,15 @@ use Illuminate\Support\Facades\File;
 
 
 Route::get('/', function (Request $request) {
+    // 关闭「普通用户网页登录」时，整个用户网页面板直接 404。
+    // 用户端是 hash 路由 SPA（/#/login、/#/dashboard… 都由这一个外壳页面承载），
+    // # 后面的片段根本不会发到服务端，无法按单个 hash 路由返回 404；因此直接让
+    // 承载 SPA 的 `/` 外壳 404，/#/login 及其余所有用户路由就一并打不开了。
+    // 超级管理员后台在 secure_path 的独立路由，不走这里，不受影响。
+    if (!(int) admin_setting('user_web_login_enable', 1)) {
+        abort(404);
+    }
+
     if (admin_setting('app_url') && admin_setting('safe_mode_enable', 0)) {
         $requestHost = $request->getHost();
         $configHost = parse_url(admin_setting('app_url'), PHP_URL_HOST);

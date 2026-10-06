@@ -85,8 +85,24 @@ class AppController extends Controller
                 'macos_force_update' => (bool) admin_setting('macos_force_update', 0),
                 'android_version' => admin_setting('android_version'),
                 'android_download_url' => admin_setting('android_download_url'),
-                'android_force_update' => (bool) admin_setting('android_force_update', 0)
+                'android_force_update' => (bool) admin_setting('android_force_update', 0),
             ];
+            // 更新文案：通用键 + 各平台覆盖键。客户端在（强制）更新界面优先取平台专属
+            // （如 android_update_title），没有再取通用（update_title），均为空则用 App
+            // 内置文案。只在管理员配置了内容时才下发对应键，避免空串污染。
+            foreach (['update_title', 'update_message', 'update_button', 'update_changelog'] as $key) {
+                $generic = admin_setting($key, '');
+                if ($generic !== '' && $generic !== null) {
+                    $data[$key] = $generic;
+                }
+                foreach (['windows', 'macos', 'android', 'ios'] as $platform) {
+                    $platformKey = "{$platform}_{$key}";
+                    $value = admin_setting($platformKey, '');
+                    if ($value !== '' && $value !== null) {
+                        $data[$platformKey] = $value;
+                    }
+                }
+            }
         }
         return $this->success($data);
     }
