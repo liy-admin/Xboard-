@@ -33,11 +33,12 @@ class NodeProbeService
         $mode = admin_setting('node_probe_mode', 'singbox');
         if ($mode === 'singbox') {
             $result = $this->probeViaSingbox($node);
-            // sing-box 不可用 / 失败时回退到 tcp，至少还能拿到延迟与名字判国家
-            if (!$result['ok'] && ($result['fallback'] ?? false)) {
-                $tcp = $this->probeViaTcp($node);
-                $tcp['error'] = $result['error'];
-                return $tcp;
+            // 绝不回退到 TCP 握手：TCP 通只能说明端口开着，不能说明这个节点真的能用
+            // （uuid/密码错、协议/传输不匹配、证书失效都照样握手成功），回退会把
+            // "链接其实用不了"的节点误判成连通——假阳性。真连测不通就是不可达。
+            // 仅在国家为空时用节点名补一下，纯展示用，不参与可达判定。
+            if (!$result['ok'] && empty($result['country_code'])) {
+                $result['country_code'] = ServerService::parseCountryFromName($node->name);
             }
             return $result;
         }
@@ -75,6 +76,7 @@ class NodeProbeService
             'exit_ip' => null,
             'country_code' => $cc,
             'error' => $latency === null ? 'tcp/ping 探测失败' : null,
+            'untestable' => false,
         ];
     }
 
@@ -128,11 +130,15 @@ class NodeProbeService
 
     private function probeViaSingbox(Server $node): array
     {
-        $fail = fn(string $err, bool $fallback = true) => [
+        // $untestable=true 表示「根本没测成」（协议不支持 / 该组没有可用用户 /
+        // sing-box 起不来等基础设施问题），不是节点本身不通——调用方据此保留上次
+        // 的测速结果，而不是把节点判成不可达（否则会误伤能用的节点）。
+        // 只有真正测了却不通（$untestable=false）才算节点不可达。
+        $fail = fn(string $err, bool $untestable = true) => [
             'ok' => false, 'latency_ms' => null,
             'min_latency' => null, 'avg_latency' => null, 'median_latency' => null, 'max_latency' => null,
             'tests' => (int) admin_setting('node_probe_test_count', 3), 'success_tests' => 0,
-            'exit_ip' => null, 'country_code' => null, 'error' => $err, 'fallback' => $fallback,
+            'exit_ip' => null, 'country_code' => null, 'error' => $err, 'untestable' => $untestable,
         ];
 
         if (!function_exists('proc_open')) {
@@ -200,7 +206,7 @@ class NodeProbeService
         }
         foreach ([1, 2] as $i) {
             if (isset($pipes[$i])) {
-                stream_set_blocking($pipes[$i], false);
+                stream_set_blocking($pipes[$i]);
             }
         }
 
@@ -208,7 +214,7 @@ class NodeProbeService
             // 3) 等本地入站端口就绪
             if (!$this->waitPort($port, 6000)) {
                 $stderr = isset($pipes[2]) ? stream_get_contents($pipes[2]) : '';
-                return $fail('sing-box 入站端口未就绪：' . trim(mb_substr($stderr, 0, 300)), false);
+                return $fail('sing-box 入站端口未就绪：' . trim(mb_substr($stderr, 0, 300)));
             }
 
             $proxy = "socks5h://127.0.0.1:{$port}";
@@ -237,6 +243,7 @@ class NodeProbeService
 
             $successTests = count($latencies);
             if ($successTests === 0) {
+                // 真的测了、但一次都没通 —— 这才是节点不可达
                 return $fail('真连测速失败：' . ($lastErr ?? '无成功请求'), false);
             }
             $stats = $this->latencyStats($latencies);
@@ -274,7 +281,7 @@ class NodeProbeService
                 'error' => null,
             ];
         } catch (\Throwable $e) {
-            return $fail('sing-box 探测异常：' . $e->getMessage(), false);
+            return $fail('sing-box 探测异常：' . $e->getMessage());
         } finally {
             foreach ($pipes as $p) {
                 if (is_resource($p)) {
@@ -393,7 +400,7 @@ class NodeProbeService
         if (!$sock) {
             return null;
         }
-        $name = stream_socket_get_name($sock, false);
+        $name = stream_socket_get_name($sock);
         fclose($sock);
         $port = (int) substr($name, strrpos($name, ':') + 1);
         return $port ?: null;

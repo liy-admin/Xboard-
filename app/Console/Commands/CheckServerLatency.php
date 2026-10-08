@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Server;
 use App\Services\NodeProbeService;
+use App\Services\ServerService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -78,18 +79,29 @@ class CheckServerLatency extends Command
                 $this->writeStatus(['current' => $server->name], true);
                 $r = $prober->probe($server);
 
-                $server->latency_ms = $r['latency_ms'];
-                $server->exit_ip = $r['exit_ip'] ?? null;
-                $server->last_latency_at = $now;
+                // 「没法测」（协议不支持 / 无可用用户 / sing-box 起不来）不是节点不通，
+                // 保留上一次的测速结果，不要把能用的节点误判成不可达。
+                $untestable = !empty($r['untestable']);
+                if (!$untestable) {
+                    $server->latency_ms = $r['latency_ms'];
+                    $server->exit_ip = $r['exit_ip'] ?? null;
+                    $server->last_latency_at = $now;
+                }
                 if (!empty($r['country_code'])) {
                     $server->country_code = $r['country_code'];
                 }
                 $server->saveQuietly(); // 测速字段频繁变化，不动 updated_at（避免每次都触发订阅更新）
 
-                // 可用性以实测连通为主，同时兼容 agent 在线（避免探测偶发失败就隐藏在线节点）
-                $working = $r['latency_ms'] !== null || $server->is_online;
+                // 可用性统一走 isNodeAvailable：实测连通（新鲜）或 agent 在线。
+                // 「没法测」的节点因此沿用上次结果，而不是立刻被判不可用。
+                $working = ServerService::isNodeAvailable([
+                    'is_online' => $server->is_online,
+                    'latency_ms' => $server->latency_ms,
+                    'last_latency_at' => $server->last_latency_at,
+                ]);
                 $probe[$server->id] = [
-                    'latency' => $r['latency_ms'],
+                    // 用节点当前值（「没法测」时即上一次的结果），供每国选最快排序
+                    'latency' => $server->latency_ms,
                     'cc' => $server->country_code,
                     'working' => $working,
                 ];
@@ -100,7 +112,9 @@ class CheckServerLatency extends Command
                 }
                 $this->writeStatus(['done' => $done, 'ok' => $okCount], true);
 
-                $latencyText = $r['latency_ms'] === null
+                $latencyText = $untestable
+                    ? '未测试(沿用上次)'
+                    : ($r['latency_ms'] === null
                     ? '不可达'
                     : sprintf(
                         '%dms (avg %s · %d/%d)',
@@ -108,7 +122,7 @@ class CheckServerLatency extends Command
                         $r['avg_latency'] ?? $r['latency_ms'],
                         $r['success_tests'] ?? 1,
                         $r['tests'] ?? 1
-                    );
+                    ));
                 $this->line(sprintf(
                     '%-28s %-18s -> %s%s%s',
                     mb_strimwidth($server->name, 0, 26, '…'),
