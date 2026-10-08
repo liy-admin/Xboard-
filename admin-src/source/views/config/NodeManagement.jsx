@@ -4,6 +4,8 @@ import { useAuthState } from "../../store/auth.js";
 import {
     getNodes,
     getNodeSyncStats,
+    probeNodeLatency,
+    getNodeProbeStatus,
     dropNode,
     batchDeleteNodes,
     batchUpdateNodes,
@@ -133,6 +135,7 @@ export function NodeManagement() {
 
     const [sortMode, setSortMode] = useState(false);
     const [orderedItems, setOrderedItems] = useState([]);
+    const [sort, setSort] = useState({ key: null, dir: "asc" });
     const [sorting, setSorting] = useState(false);
     const dragIndexRef = useRef(null);
 
@@ -146,6 +149,9 @@ export function NodeManagement() {
 
     // 节点变更后有多少客户端已经同步过去了。改完节点想知道"生效了没有"时看它。
     const [syncStats, setSyncStats] = useState(null);
+    const [probeStatus, setProbeStatus] = useState(null);
+    const probePollRef = useRef(null);
+    const probing = !!(probeStatus && probeStatus.running);
 
     const loadSyncStats = () =>
         getNodeSyncStats()
@@ -170,6 +176,14 @@ export function NodeManagement() {
         fetchGroups().then((res) => setGroups(res?.data || []));
         fetchMachines().then((res) => setMachines(res?.data || []));
         fetchRoutes().then((res) => setRoutes(res?.data || []));
+        // 刷新后若后台仍在测速，继续显示进度
+        getNodeProbeStatus()
+            .then((res) => {
+                const s = res?.data || null;
+                setProbeStatus(s);
+                if (s && s.running) startProbePolling();
+            })
+            .catch(() => {});
     }, [auth.token]);
 
     const machineById = useMemo(() => new Map(machines.map((m) => [m.id, m])), [machines]);
@@ -186,7 +200,55 @@ export function NodeManagement() {
         });
     }, [items, search, typeFilter, machineFilter, groupFilter]);
 
-    const displayItems = sortMode ? orderedItems : filtered;
+    // 点击表头排序
+    const toggleSort = (key) =>
+        setSort((p) => (p.key === key ? { key, dir: p.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+
+    const sortValue = (node, key) => {
+        switch (key) {
+            case "id": return Number(node.id) || 0;
+            case "show": return node.show ? 1 : 0;
+            case "name": return (node.name || "").toLowerCase();
+            case "machine": return (machineById.get(node.machine_id)?.name || "").toLowerCase();
+            case "host": return (node.host || "").toLowerCase();
+            case "online": return Number(node.online || 0);
+            case "latency": return node.latency_ms == null ? null : Number(node.latency_ms);
+            case "delivered": return node.is_delivered ? 1 : 0;
+            case "rate": return Number(node.rate || 0);
+            case "groups": return (node.groups?.length ?? node.group_ids?.length ?? 0);
+            case "type": return (node.type || "").toLowerCase();
+            case "traffic": return Number(node.u || 0) + Number(node.d || 0);
+            default: return null;
+        }
+    };
+
+    const sortedItems = useMemo(() => {
+        if (!sort.key) return filtered;
+        const isNullish = (v) => v === null || v === undefined || v === "" || (typeof v === "number" && !Number.isFinite(v));
+        const arr = [...filtered];
+        arr.sort((a, b) => {
+            const va = sortValue(a, sort.key);
+            const vb = sortValue(b, sort.key);
+            const an = isNullish(va), bn = isNullish(vb);
+            if (an && bn) return 0;
+            if (an) return 1;   // 空值永远排最后
+            if (bn) return -1;
+            const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+            return sort.dir === "asc" ? cmp : -cmp;
+        });
+        return arr;
+    }, [filtered, sort, machineById]);
+
+    const displayItems = sortMode ? orderedItems : sortedItems;
+
+    const SortHead = ({ k, children, className }) => (
+        <TableHead className={className}>
+            <button type="button" onClick={() => toggleSort(k)} className="inline-flex items-center gap-1 select-none hover:text-foreground">
+                {children}
+                <span className="text-[10px] text-muted-foreground">{sort.key === k ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}</span>
+            </button>
+        </TableHead>
+    );
 
     const selectedNodes = filtered.filter((n) => selectedIds.has(n.id));
     const hasSelection = selectedNodes.length > 0;
@@ -235,6 +297,50 @@ export function NodeManagement() {
         await action(ids);
         setSelectedIds(new Set());
         await load();
+    };
+
+    // 轮询测速进度；结束后停止并刷新列表
+    const pollProbe = () =>
+        getNodeProbeStatus()
+            .then((res) => {
+                const s = res?.data || null;
+                setProbeStatus(s);
+                if (!s || !s.running) {
+                    stopProbePolling();
+                    load();
+                }
+            })
+            .catch(() => {});
+
+    const startProbePolling = () => {
+        if (probePollRef.current) return;
+        pollProbe();
+        probePollRef.current = setInterval(pollProbe, 2000);
+    };
+
+    const stopProbePolling = () => {
+        if (probePollRef.current) {
+            clearInterval(probePollRef.current);
+            probePollRef.current = null;
+        }
+    };
+
+    useEffect(() => () => stopProbePolling(), []);
+
+    // 手动测速：测选中
+    const probeSelected = async () => {
+        const ids = selectedNodes.map((n) => n.id);
+        if (!ids.length || probing) return;
+        await probeNodeLatency(ids);
+        setSelectedIds(new Set());
+        startProbePolling();
+    };
+
+    // 手动测速：测全部
+    const probeAll = async () => {
+        if (probing) return;
+        await probeNodeLatency();
+        startProbePolling();
     };
 
     const handleCopy = async (node) => {
@@ -326,6 +432,7 @@ export function NodeManagement() {
                         </Button>
                     )}
                     <div className="ml-auto flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={probeAll} loading={probing} disabled={probing}>{t("toolbar.probe.all")}</Button>
                         <Button variant="outline" size="sm" onClick={() => { setEditingNode(null); setFormOpen(true); }}>{t("form.add_node")}</Button>
                         <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>{t("import.button")}</Button>
                         <Button variant={sortMode ? "default" : "outline"} size="sm" onClick={() => (sortMode ? saveOrder() : enterSortMode())} loading={sorting}>
@@ -334,11 +441,34 @@ export function NodeManagement() {
                     </div>
                 </div>
 
+                {probeStatus && probeStatus.running && (
+                    <div className="rounded-md border bg-muted/20 px-3 py-2">
+                        <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                            <span className="truncate">
+                                {probeStatus.queued && !probeStatus.done
+                                    ? t("toolbar.probe.queued")
+                                    : t("toolbar.probe.progress", { done: probeStatus.done || 0, total: probeStatus.total || 0, ok: probeStatus.ok || 0 })}
+                                {probeStatus.current ? ` · ${probeStatus.current}` : ""}
+                            </span>
+                            <span className="ml-2 shrink-0 font-medium">
+                                {probeStatus.total ? Math.round(((probeStatus.done || 0) / probeStatus.total) * 100) : 0}%
+                            </span>
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                                style={{ width: `${probeStatus.total ? Math.min(100, ((probeStatus.done || 0) / probeStatus.total) * 100) : (probeStatus.queued ? 8 : 0)}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
+
                 {sortMode ? (
                     <p className="text-xs text-muted-foreground">{t("toolbar.sort.tip")}</p>
                 ) : (
                     <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/20 px-3 py-2">
                         <span className="text-xs font-medium text-muted-foreground">{t("toolbar.actions")}{hasSelection ? ` (${selectedNodes.length})` : ""}</span>
+                        <Button variant="outline" size="sm" disabled={!hasSelection || probing} loading={probing} onClick={probeSelected}>{t("toolbar.probe.selected")}</Button>
                         <Button variant="outline" size="sm" disabled={!hasSelection} onClick={() => runBatch((ids) => batchUpdateNodes({ ids, show: 1 }))}>{t("toolbar.batch_show.menu")}</Button>
                         <Button variant="outline" size="sm" disabled={!hasSelection} onClick={() => runBatch((ids) => batchUpdateNodes({ ids, show: 0 }))}>{t("toolbar.batch_hide.menu")}</Button>
                         <Button variant="outline" size="sm" disabled={!hasSelection} onClick={() => runBatch((ids) => batchUpdateNodes({ ids, enabled: true }))}>{t("toolbar.batch_enable.menu")}</Button>
@@ -363,25 +493,26 @@ export function NodeManagement() {
                                     />
                                 </TableHead>
                             )}
-                            <TableHead>{t("columns.nodeId")}</TableHead>
-                            <TableHead>{t("columns.show")}</TableHead>
-                            <TableHead>{t("columns.node")}</TableHead>
-                            <TableHead>{t("columns.deployment.title")}</TableHead>
-                            <TableHead>{t("columns.address")}</TableHead>
-                            <TableHead>{t("columns.onlineUsers.title")}</TableHead>
-                            <TableHead>{t("columns.latency.title")}</TableHead>
-                            <TableHead>{t("columns.rate.title")}</TableHead>
-                            <TableHead>{t("columns.groups.title")}</TableHead>
-                            <TableHead>{t("columns.type")}</TableHead>
-                            <TableHead>{t("columns.traffic.title")}</TableHead>
+                            <SortHead k="id">{t("columns.nodeId")}</SortHead>
+                            <SortHead k="show">{t("columns.show")}</SortHead>
+                            <SortHead k="name">{t("columns.node")}</SortHead>
+                            <SortHead k="machine">{t("columns.deployment.title")}</SortHead>
+                            <SortHead k="host">{t("columns.address")}</SortHead>
+                            <SortHead k="online">{t("columns.onlineUsers.title")}</SortHead>
+                            <SortHead k="latency">{t("columns.latency.title")}</SortHead>
+                            <SortHead k="delivered">{t("columns.delivered.title")}</SortHead>
+                            <SortHead k="rate">{t("columns.rate.title")}</SortHead>
+                            <SortHead k="groups">{t("columns.groups.title")}</SortHead>
+                            <SortHead k="type">{t("columns.type")}</SortHead>
+                            <SortHead k="traffic">{t("columns.traffic.title")}</SortHead>
                             <TableHead className="w-44 text-right">{t("columns.actions")}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            <TableEmpty colSpan={13}>...</TableEmpty>
+                            <TableEmpty colSpan={14}>...</TableEmpty>
                         ) : displayItems.length === 0 ? (
-                            <TableEmpty colSpan={13}>-</TableEmpty>
+                            <TableEmpty colSpan={14}>-</TableEmpty>
                         ) : (
                             displayItems.map((node, index) => {
                                 const machine = node.machine_id ? machineById.get(node.machine_id) : null;
@@ -470,6 +601,13 @@ export function NodeManagement() {
                                             )}
                                         </TableCell>
                                         <TableCell>{renderLatency(node, t)}</TableCell>
+                                        <TableCell>
+                                            {node.is_delivered ? (
+                                                <Badge className="bg-emerald-500 text-white hover:bg-emerald-500">{t("columns.delivered.yes")}</Badge>
+                                            ) : (
+                                                <Badge variant="secondary" className="text-muted-foreground">{t("columns.delivered.no")}</Badge>
+                                            )}
+                                        </TableCell>
                                         <TableCell><Badge variant="secondary">{node.rate}x</Badge></TableCell>
                                         <TableCell>
                                             <div className="flex flex-wrap gap-1">

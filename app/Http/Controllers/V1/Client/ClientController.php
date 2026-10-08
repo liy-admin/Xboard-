@@ -98,7 +98,17 @@ class ClientController extends Controller
         // 「每个国家只下发一个节点」：仅在订阅下发时按国家去重、选最优，
         // 不影响后台节点列表等共用 getAvailableServers 的地方。
         if ((bool) admin_setting('server_dedup_by_country', false)) {
-            $servers = ServerService::pickBestPerCountry($servers);
+            $deduped = ServerService::pickBestPerCountry($servers);
+            // 安全网：严格去重后一个都不剩（可能全部测速过期且 agent 离线），
+            // 退回原始可用列表，避免客户端拿到空订阅、彻底没节点可用。
+            if (empty($deduped) && !empty($servers)) {
+                \Log::warning('subscribe: pickBestPerCountry 结果为空，退回未去重列表以免下发为空', [
+                    'user_id' => $user->id ?? null,
+                    'total' => count($servers),
+                ]);
+            } else {
+                $servers = $deduped;
+            }
         }
 
         $clientInfo = $this->getClientInfo($request);

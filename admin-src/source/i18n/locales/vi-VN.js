@@ -859,6 +859,11 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "exit": "Lối ra",
         "testedAt": "Đo lúc"
       },
+      "delivered": {
+        "title": "Phân phối",
+        "yes": "Đang phân phối",
+        "no": "Không phân phối"
+      },
       "rate": {
         "title": "Hệ số",
         "tooltip": "Hệ số tính phí traffic"
@@ -949,6 +954,12 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
       "server_empty": "Không tìm thấy máy chủ",
       "reset": "Đặt lại",
       "actions": "Thao tác",
+      "probe": {
+        "all": "Đo tất cả",
+        "selected": "Đo mục đã chọn",
+        "queued": "Đang chờ đo…",
+        "progress": "Đang đo {{done}}/{{total}} · khả dụng {{ok}}"
+      },
       "sort": {
         "tip": "Kéo thả node để sắp xếp, sau đó nhấn lưu",
         "edit": "Sửa thứ tự",
@@ -1823,9 +1834,22 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "description": "Đường dẫn hoặc tên lệnh sing-box tùy chỉnh; để trống để dùng bản tự động tải.",
         "placeholder": "Để trống để tự động tải"
       },
+      "node_probe_latency_url": {
+        "title": "URL kiểm tra kết nối",
+        "description": "URL được truy cập qua node để xác định khả năng kết nối và đo độ trễ, giống kiểm tra kết nối thật của v2rayN. Mặc định dùng generate_204 (trả về 204, nhanh, ổn định). Node được coi là khả dụng nếu URL này truy cập được.",
+        "placeholder": "https://www.gstatic.com/generate_204"
+      },
+      "node_probe_test_count": {
+        "title": "Số lần đo",
+        "description": "Đo mỗi node bao nhiêu lần; lấy giá trị tốt nhất làm độ trễ thật (cũng ghi lại trung bình/trung vị/tối đa). 1–10, mặc định 3."
+      },
+      "node_probe_request_timeout_ms": {
+        "title": "Thời gian chờ yêu cầu (ms)",
+        "description": "Thời gian chờ mỗi yêu cầu đo thật. 1000–30000, mặc định 10000."
+      },
       "node_probe_ip_echo_url": {
-        "title": "URL IP echo",
-        "description": "URL được truy cập qua node để lấy IP lối ra thật và quốc gia. Mặc định dùng ip-api.com (trả về IP lối ra và mã quốc gia).",
+        "title": "URL IP echo (tùy chọn)",
+        "description": "URL được truy cập qua node để lấy IP lối ra thật và quốc gia; chỉ dùng để bổ sung thông tin quốc gia. Lấy không được cũng không ảnh hưởng việc xác định kết nối (quốc gia sẽ lấy từ tên node).",
         "placeholder": "http://ip-api.com/json/?fields=status,countryCode,query"
       },
       "server_latency_timeout_ms": {

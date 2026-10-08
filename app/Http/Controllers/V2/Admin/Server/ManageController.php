@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers\V2\Admin\Server;
 
+use App\Console\Commands\CheckServerLatency;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ServerSave;
+use App\Jobs\ProbeNodeLatencyJob;
 use App\Models\Server;
 use App\Models\ServerGroup;
 use App\Models\User;
 use App\Services\ProxyParserService;
 use App\Services\ServerService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -18,12 +21,165 @@ class ManageController extends Controller
 {
     public function getNodes(Request $request)
     {
-        $servers = ServerService::getAllServers()->map(function ($item) {
+        $servers = ServerService::getAllServers();
+
+        // 计算「是否下发」：和订阅实际逻辑一致——show 且在线且未超流量的为候选，
+        // 开启按国家去重时每国只保留延迟最低的一个（无国家的保留）。
+        $deliveredIds = $this->computeDeliveredIds($servers);
+
+        $servers = $servers->map(function ($item) use ($deliveredIds) {
             $item['groups'] = ServerGroup::whereIn('id', $item['group_ids'] ?? [])->get(['name', 'id']);
             $item['parent'] = $item->parent;
+            $item['is_delivered'] = in_array($item->id, $deliveredIds, true);
             return $item;
         });
         return $this->success($servers);
+    }
+
+    /**
+     * 根据当前设置算出「会被下发」的父节点 id 集合，供节点管理展示是否下发。
+     *
+     * @param  \Illuminate\Support\Collection  $servers
+     * @return int[]
+     */
+    private function computeDeliveredIds($servers): array
+    {
+        $now = time();
+        $stale = (int) admin_setting('server_latency_stale_seconds', 600);
+        $candidates = $servers->filter(function ($s) use ($now, $stale) {
+            if ($s->parent_id || !$s->show) {
+                return false;
+            }
+            // 可用性以「实测连通或 agent 在线」为准（见 ServerService::isNodeAvailable）
+            $available = ServerService::isNodeAvailable([
+                'is_online' => $s->is_online,
+                'latency_ms' => $s->latency_ms,
+                'last_latency_at' => $s->last_latency_at,
+            ], $now, $stale);
+            if (!$available) {
+                return false;
+            }
+            $limit = (int) ($s->transfer_enable ?? 0);
+            return $limit <= 0 || ((int) $s->u + (int) $s->d) < $limit;
+        })->values();
+
+        if (!(bool) admin_setting('server_dedup_by_country', false)) {
+            return $candidates->pluck('id')->map(fn($v) => (int) $v)->all();
+        }
+
+        // 复用订阅那套「每国选最快」逻辑，保持口径一致
+        $picked = ServerService::pickBestPerCountry($candidates->map->toArray()->all());
+        return array_map(fn($p) => (int) $p['id'], $picked);
+    }
+
+    /**
+     * 手动触发节点测速（后台异步跑，前端用 probeStatus 轮询进度）。
+     * 传 ids 只测这几个；不传测全部。
+     */
+    public function probeLatency(Request $request)
+    {
+        $params = $request->validate([
+            'ids' => 'nullable|array',
+            'ids.*' => 'integer',
+        ]);
+        $ids = array_map('intval', $params['ids'] ?? []);
+
+        // 已有测速在跑就不重复触发
+        $status = Cache::get(CheckServerLatency::STATUS_CACHE_KEY);
+        if ($status && !empty($status['running']) && (time() - ($status['updated_at'] ?? 0) < 120)) {
+            return $this->success(['started' => false, 'running' => true]);
+        }
+
+        // 预估总数并先写一个「排队中」状态，让进度条立刻出现（worker 真正开始后命令会覆盖）
+        $total = $this->estimateProbeTotal($ids);
+        Cache::put(CheckServerLatency::STATUS_CACHE_KEY, [
+            'running' => true,
+            'queued' => true,
+            'total' => $total,
+            'done' => 0,
+            'ok' => 0,
+            'current' => '',
+            'started_at' => time(),
+            'finished_at' => null,
+            'updated_at' => time(),
+        ], 3600);
+
+        // 直接在后台拉起 artisan 进程执行测速 —— 不依赖队列 worker（Horizon），
+        // 本地/未开 worker 的部署也能跑。拉不起来再退回队列。
+        if (!$this->spawnProbe($ids)) {
+            ProbeNodeLatencyJob::dispatch($ids ?: null);
+        }
+        return $this->success(['started' => true, 'total' => $total]);
+    }
+
+    /**
+     * 后台（detached）拉起 `php artisan check:server-latency` 进程，立即返回。
+     * 成功返回 true；exec/popen 不可用或失败返回 false（调用方退回队列）。
+     */
+    private function spawnProbe(array $ids): bool
+    {
+        $php = PHP_BINARY ?: 'php';
+        $artisan = base_path('artisan');
+        $idArgs = '';
+        foreach ($ids as $id) {
+            $idArgs .= ' --id=' . (int) $id;
+        }
+
+        try {
+            if (PHP_OS_FAMILY === 'Windows') {
+                if (!function_exists('popen')) {
+                    return false;
+                }
+                $full = sprintf('%s %s check:server-latency%s', escapeshellarg($php), escapeshellarg($artisan), $idArgs);
+                $handle = @popen('start /B "" ' . $full . ' > NUL 2>&1', 'r');
+                if ($handle === false) {
+                    return false;
+                }
+                pclose($handle);
+                return true;
+            }
+
+            if (!function_exists('exec')) {
+                return false;
+            }
+            $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+            if (in_array('exec', $disabled, true)) {
+                return false;
+            }
+            $cmd = sprintf('%s %s check:server-latency%s > /dev/null 2>&1 &', escapeshellarg($php), escapeshellarg($artisan), $idArgs);
+            @exec($cmd);
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('spawnProbe 失败', ['message' => $e->getMessage()]);
+            return false;
+        }
+    }
+
+    /** 测速进度（供管理端进度条轮询）。 */
+    public function probeStatus(Request $request)
+    {
+        $status = Cache::get(CheckServerLatency::STATUS_CACHE_KEY);
+        if (!$status) {
+            return $this->success(['running' => false]);
+        }
+        // 兜底：进程被杀导致状态卡在 running，超过 120s 没更新就当已结束
+        if (!empty($status['running']) && (time() - ($status['updated_at'] ?? 0)) > 120) {
+            $status['running'] = false;
+            $status['stale'] = true;
+        }
+        return $this->success($status);
+    }
+
+    private function estimateProbeTotal(array $ids): int
+    {
+        if (!empty($ids)) {
+            return count($ids);
+        }
+        $q = Server::whereNull('parent_id');
+        if (!(bool) admin_setting('server_auto_manage_visibility', false)) {
+            $q->where('show', true);
+        }
+        return $q->count();
     }
 
     public function sort(Request $request)

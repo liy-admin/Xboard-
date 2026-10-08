@@ -6,6 +6,7 @@ use App\Models\Server;
 use App\Services\NodeProbeService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * 节点测速 + 国家解析，并（可选）按测速结果自动设置节点显隐。两种探测模式（node_probe_mode）：
@@ -23,6 +24,9 @@ class CheckServerLatency extends Command
     protected $signature = 'check:server-latency {--id=* : 只探测指定节点ID（调试用）}';
 
     protected $description = '节点测速（sing-box 实跑 / TCP 握手）、国家解析与自动显隐';
+
+    /** 进度状态缓存键（供管理端进度条轮询，刷新后仍可见） */
+    public const STATUS_CACHE_KEY = 'server_latency_probe_status';
 
     public function handle(NodeProbeService $prober): int
     {
@@ -48,47 +52,103 @@ class CheckServerLatency extends Command
             return self::SUCCESS;
         }
 
-        $mode = admin_setting('node_probe_mode', 'tcp');
-        $this->info("探测模式：{$mode}，自动显隐：" . ($autoVisibility ? '开' : '关') . "，共 {$servers->count()} 个节点。");
+        $mode = admin_setting('node_probe_mode', 'singbox');
+        $total = $servers->count();
+        $this->info("探测模式：{$mode}，自动显隐：" . ($autoVisibility ? '开' : '关') . "，共 {$total} 个节点。");
+
+        $startedAt = time();
+        $this->writeStatus([
+            'running' => true,
+            'total' => $total,
+            'done' => 0,
+            'ok' => 0,
+            'mode' => $mode,
+            'current' => '',
+            'started_at' => $startedAt,
+            'finished_at' => null,
+        ]);
 
         $now = time();
+        $done = 0;
+        $okCount = 0;
         // id => ['latency' => ?int, 'cc' => ?string, 'working' => bool]
         $probe = [];
-        foreach ($servers as $server) {
-            $r = $prober->probe($server);
+        try {
+            foreach ($servers as $server) {
+                $this->writeStatus(['current' => $server->name], true);
+                $r = $prober->probe($server);
 
-            $server->latency_ms = $r['latency_ms'];
-            $server->exit_ip = $r['exit_ip'] ?? null;
-            $server->last_latency_at = $now;
-            if (!empty($r['country_code'])) {
-                $server->country_code = $r['country_code'];
+                $server->latency_ms = $r['latency_ms'];
+                $server->exit_ip = $r['exit_ip'] ?? null;
+                $server->last_latency_at = $now;
+                if (!empty($r['country_code'])) {
+                    $server->country_code = $r['country_code'];
+                }
+                $server->saveQuietly(); // 测速字段频繁变化，不动 updated_at（避免每次都触发订阅更新）
+
+                // 可用性以实测连通为主，同时兼容 agent 在线（避免探测偶发失败就隐藏在线节点）
+                $working = $r['latency_ms'] !== null || $server->is_online;
+                $probe[$server->id] = [
+                    'latency' => $r['latency_ms'],
+                    'cc' => $server->country_code,
+                    'working' => $working,
+                ];
+
+                $done++;
+                if ($working) {
+                    $okCount++;
+                }
+                $this->writeStatus(['done' => $done, 'ok' => $okCount], true);
+
+                $latencyText = $r['latency_ms'] === null
+                    ? '不可达'
+                    : sprintf(
+                        '%dms (avg %s · %d/%d)',
+                        $r['latency_ms'],
+                        $r['avg_latency'] ?? $r['latency_ms'],
+                        $r['success_tests'] ?? 1,
+                        $r['tests'] ?? 1
+                    );
+                $this->line(sprintf(
+                    '%-28s %-18s -> %s%s%s',
+                    mb_strimwidth($server->name, 0, 26, '…'),
+                    $server->host,
+                    $latencyText,
+                    !empty($server->country_code) ? "  [{$server->country_code}]" : '',
+                    !empty($r['exit_ip']) ? "  出口 {$r['exit_ip']}" : ''
+                ));
+                if (!empty($r['error'])) {
+                    $this->warn('  ! ' . $r['error']);
+                }
             }
-            $server->saveQuietly(); // 测速字段频繁变化，不动 updated_at（避免每次都触发订阅更新）
 
-            $probe[$server->id] = [
-                'latency' => $r['latency_ms'],
-                'cc' => $server->country_code,
-                'working' => $r['latency_ms'] !== null,
-            ];
-
-            $this->line(sprintf(
-                '%-28s %-18s -> %s%s%s',
-                mb_strimwidth($server->name, 0, 26, '…'),
-                $server->host,
-                $r['latency_ms'] === null ? '不可达' : "{$r['latency_ms']}ms",
-                !empty($server->country_code) ? "  [{$server->country_code}]" : '',
-                !empty($r['exit_ip']) ? "  出口 {$r['exit_ip']}" : ''
-            ));
-            if (!empty($r['error'])) {
-                $this->warn('  ! ' . $r['error']);
+            // 自动显隐依赖「探测了全部节点」来做每国选优；只探测了部分节点（--id）时不执行，
+            // 否则会把没探测到的节点误隐藏。
+            if ($autoVisibility && !$this->option('id')) {
+                $this->applyVisibility($servers, $probe);
             }
-        }
-
-        if ($autoVisibility) {
-            $this->applyVisibility($servers, $probe);
+        } finally {
+            $this->writeStatus([
+                'running' => false,
+                'current' => '',
+                'finished_at' => time(),
+            ], true);
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * 写进度到缓存。$merge=true 时合并进已有状态（否则整体覆盖）。
+     * 额外写 updated_at，供端点判断进度是否「卡死」（进程被杀时兜底）。
+     */
+    private function writeStatus(array $data, bool $merge = false): void
+    {
+        if ($merge) {
+            $data = array_merge((array) Cache::get(self::STATUS_CACHE_KEY, []), $data);
+        }
+        $data['updated_at'] = time();
+        Cache::put(self::STATUS_CACHE_KEY, $data, 3600);
     }
 
     /**
@@ -115,16 +175,28 @@ class CheckServerLatency extends Command
         }
         $showIds = array_column($bestByCountry, 'id');
 
-        $shown = 0;
-        $hidden = 0;
+        // 先算出每个节点「应不应该显示」
+        $targets = []; // id => bool
         foreach ($servers as $server) {
             $p = $probe[$server->id] ?? null;
             $working = $p['working'] ?? false;
             $cc = $p['cc'] ?? null;
-
             // 显示：每国最优 或 无国家但可达；其余隐藏
-            $shouldShow = in_array($server->id, $showIds, true) || ($working && blank($cc));
+            $targets[$server->id] = in_array($server->id, $showIds, true) || ($working && blank($cc));
+        }
 
+        // 安全网：如果这一轮算出来「一个都不显示」，极可能是本次探测整体异常
+        // （sing-box 没就绪 / 网络抖动 / 测试地址不可达），不要把全部节点隐藏，
+        // 否则订阅会变空、客户端没节点。此时保持现有 show 不动。
+        if (!in_array(true, $targets, true)) {
+            $this->warn('自动显隐已跳过：本轮没有任何可达节点（疑似探测异常），保持现有显隐不变以免下发为空。');
+            return;
+        }
+
+        $shown = 0;
+        $hidden = 0;
+        foreach ($servers as $server) {
+            $shouldShow = $targets[$server->id] ?? false;
             if ((bool) $server->show !== $shouldShow) {
                 $server->show = $shouldShow;
                 $server->save(); // 变更才 bump updated_at

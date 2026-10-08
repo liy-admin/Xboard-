@@ -83,6 +83,27 @@ class ServerService
     }
 
     /**
+     * 判断节点是否「可用/可下发」。
+     *
+     * 以**面板实测连通**为主：最近一次测速成功（latency_ms 非空且未过期）即视为可用；
+     * 同时兼容 agent 心跳（is_online）。两者满足其一即可——很多部署节点 agent 不上报
+     * 心跳（is_online=0）但节点其实能用，这时实测结果才是真相。
+     *
+     * @param array $s 节点数组（含 is_online / latency_ms / last_latency_at）
+     */
+    public static function isNodeAvailable(array $s, ?int $now = null, ?int $stale = null): bool
+    {
+        if (!empty($s['is_online'])) {
+            return true;
+        }
+        $now ??= time();
+        $stale ??= (int) admin_setting('server_latency_stale_seconds', 600);
+        return ($s['latency_ms'] ?? null) !== null
+            && !empty($s['last_latency_at'])
+            && ($now - (int) $s['last_latency_at']) <= $stale;
+    }
+
+    /**
      * 「每个国家只下发一个节点」：按国家去重，每组选最优的一个。
      *
      * 仅在订阅下发路径调用（ClientController::doSubscribe），不影响后台节点列表等
@@ -109,8 +130,8 @@ class ServerService
         $noCountry = [];
         $byCountry = [];
         foreach ($servers as $server) {
-            if (empty($server['is_online'])) {
-                continue; // 离线节点不下发
+            if (!self::isNodeAvailable($server, $now, $stale)) {
+                continue; // 不可用节点不下发
             }
             $cc = $server['country_code'] ?? null;
             if (blank($cc)) {

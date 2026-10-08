@@ -45,20 +45,51 @@ class ServerServiceTest extends TestCase
         $this->assertSame(3, $byCode['JP']['id']);
     }
 
-    public function test_excludes_offline_nodes(): void
+    public function test_excludes_unavailable_nodes(): void
     {
         admin_setting(['server_country_naming' => false, 'server_latency_stale_seconds' => 600]);
         $now = time();
 
         $servers = [
-            $this->server(['id' => 1, 'country_code' => 'US', 'is_online' => 0, 'latency_ms' => 10, 'last_latency_at' => $now]),
+            // 既离线又没有新鲜测速结果 -> 不可用
+            $this->server(['id' => 1, 'country_code' => 'US', 'is_online' => 0, 'latency_ms' => null, 'last_latency_at' => null]),
             $this->server(['id' => 2, 'country_code' => 'US', 'is_online' => 1, 'latency_ms' => 200, 'last_latency_at' => $now]),
         ];
 
         $result = ServerService::pickBestPerCountry($servers);
 
         $this->assertCount(1, $result);
-        $this->assertSame(2, $result[0]['id'], '离线的低延迟节点不应入选');
+        $this->assertSame(2, $result[0]['id'], '不可用（离线且无测速）节点不应入选');
+    }
+
+    public function test_probe_success_counts_even_when_agent_offline(): void
+    {
+        // agent 不上报心跳（is_online=0）但面板实测连通 -> 应视为可用并下发
+        admin_setting(['server_country_naming' => false, 'server_latency_stale_seconds' => 600]);
+        $now = time();
+
+        $servers = [
+            $this->server(['id' => 1, 'country_code' => 'HK', 'is_online' => 0, 'latency_ms' => 120, 'last_latency_at' => $now]),
+        ];
+
+        $result = ServerService::pickBestPerCountry($servers);
+
+        $this->assertCount(1, $result);
+        $this->assertSame(1, $result[0]['id'], '实测连通的节点即使 agent 离线也应下发');
+    }
+
+    public function test_stale_latency_offline_is_excluded(): void
+    {
+        admin_setting(['server_country_naming' => false, 'server_latency_stale_seconds' => 600]);
+
+        $servers = [
+            // 离线 + 测速结果过期 -> 不可用
+            $this->server(['id' => 1, 'country_code' => 'HK', 'is_online' => 0, 'latency_ms' => 50, 'last_latency_at' => time() - 10000]),
+        ];
+
+        $result = ServerService::pickBestPerCountry($servers);
+
+        $this->assertCount(0, $result, '离线且延迟已过期的节点不应下发');
     }
 
     public function test_falls_back_when_no_fresh_latency(): void

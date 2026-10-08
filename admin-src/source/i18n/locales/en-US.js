@@ -858,6 +858,11 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "exit": "Exit",
         "testedAt": "Tested"
       },
+      "delivered": {
+        "title": "Delivered",
+        "yes": "Delivering",
+        "no": "Not delivered"
+      },
       "rate": {
         "title": "Rate",
         "tooltip": "Traffic billing rate"
@@ -947,6 +952,12 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "server_empty": "No servers found",
       "reset": "Reset",
       "actions": "Actions",
+      "probe": {
+        "all": "Test all",
+        "selected": "Test selected",
+        "queued": "Speed test queued…",
+        "progress": "Testing {{done}}/{{total}} · reachable {{ok}}"
+      },
       "sort": {
         "tip": "Drag nodes to sort, then click save",
         "edit": "Edit Sort",
@@ -1835,9 +1846,22 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "description": "Custom sing-box binary path or command name; leave blank to use the auto-downloaded copy.",
         "placeholder": "Leave blank to auto-download"
       },
+      "node_probe_latency_url": {
+        "title": "Connectivity test URL",
+        "description": "URL fetched through the node to decide reachability and measure latency, like v2rayN's real-connection test. Defaults to generate_204 (returns 204, fast, reliable). A node is considered available if this URL is reachable.",
+        "placeholder": "https://www.gstatic.com/generate_204"
+      },
+      "node_probe_test_count": {
+        "title": "Test count",
+        "description": "How many times to test each node; the best value is the real delay (avg/median/max are also recorded). 1–10, default 3."
+      },
+      "node_probe_request_timeout_ms": {
+        "title": "Request timeout (ms)",
+        "description": "Timeout per real-delay request. 1000–30000, default 10000."
+      },
       "node_probe_ip_echo_url": {
-        "title": "IP echo URL",
-        "description": "URL fetched through the node to obtain the real exit IP and country. Defaults to ip-api.com (returns exit IP and country code).",
+        "title": "IP echo URL (optional)",
+        "description": "URL fetched through the node to obtain the real exit IP and country; used only to enrich country info. Failing it does not affect reachability (country falls back to parsing the node name).",
         "placeholder": "http://ip-api.com/json/?fields=status,countryCode,query"
       },
       "server_latency_timeout_ms": {

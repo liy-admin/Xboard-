@@ -819,6 +819,11 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "exit": "出口",
         "testedAt": "测速于"
       },
+      "delivered": {
+        "title": "是否下发",
+        "yes": "下发中",
+        "no": "不下发"
+      },
       "rate": {
         "title": "倍率",
         "tooltip": "流量扣费倍率"
@@ -916,6 +921,12 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "server_empty": "未找到服务器",
       "reset": "重置",
       "actions": "操作",
+      "probe": {
+        "all": "测速全部",
+        "selected": "测速选中",
+        "queued": "测速排队中…",
+        "progress": "测速中 {{done}}/{{total}} · 可用 {{ok}}"
+      },
       "sort": {
         "tip": "拖拽节点进行排序，完成后点击保存",
         "edit": "编辑排序",
@@ -2749,9 +2760,22 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "description": "自定义 sing-box 可执行文件路径或命令名；留空则使用自动下载的副本。",
         "placeholder": "留空自动下载"
       },
+      "node_probe_latency_url": {
+        "title": "连通测试地址",
+        "description": "通过节点访问该地址来判断是否连通并计算延迟，和 v2rayN 的真连接测试一样。默认用 generate_204（返回 204、快、可靠）。只要该地址能通就视为节点可用。",
+        "placeholder": "https://www.gstatic.com/generate_204"
+      },
+      "node_probe_test_count": {
+        "title": "测试次数",
+        "description": "每个节点连测几次，取最优值作为真连延迟（同时记录平均/中位/最大）。1–10，默认 3。"
+      },
+      "node_probe_request_timeout_ms": {
+        "title": "请求超时（毫秒）",
+        "description": "单次真连请求的超时时间。1000–30000，默认 10000。"
+      },
       "node_probe_ip_echo_url": {
-        "title": "IP 回显地址",
-        "description": "通过节点访问该地址以获取真实出口 IP 与国家。默认用 ip-api.com（返回出口 IP 和国家码）。",
+        "title": "IP 回显地址（可选）",
+        "description": "通过节点访问该地址以获取真实出口 IP 与国家，仅用于补充国家信息；拿不到也不影响连通判定（国家会回退到节点名解析）。",
         "placeholder": "http://ip-api.com/json/?fields=status,countryCode,query"
       },
       "server_latency_timeout_ms": {

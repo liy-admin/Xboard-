@@ -30,7 +30,7 @@ class NodeProbeService
 
     public function probe(Server $node): array
     {
-        $mode = admin_setting('node_probe_mode', 'tcp');
+        $mode = admin_setting('node_probe_mode', 'singbox');
         if ($mode === 'singbox') {
             $result = $this->probeViaSingbox($node);
             // sing-box 不可用 / 失败时回退到 tcp，至少还能拿到延迟与名字判国家
@@ -66,6 +66,12 @@ class NodeProbeService
         return [
             'ok' => $latency !== null,
             'latency_ms' => $latency,
+            'min_latency' => $latency,
+            'avg_latency' => $latency,
+            'median_latency' => $latency,
+            'max_latency' => $latency,
+            'tests' => 1,
+            'success_tests' => $latency !== null ? 1 : 0,
             'exit_ip' => null,
             'country_code' => $cc,
             'error' => $latency === null ? 'tcp/ping 探测失败' : null,
@@ -123,8 +129,10 @@ class NodeProbeService
     private function probeViaSingbox(Server $node): array
     {
         $fail = fn(string $err, bool $fallback = true) => [
-            'ok' => false, 'latency_ms' => null, 'exit_ip' => null,
-            'country_code' => null, 'error' => $err, 'fallback' => $fallback,
+            'ok' => false, 'latency_ms' => null,
+            'min_latency' => null, 'avg_latency' => null, 'median_latency' => null, 'max_latency' => null,
+            'tests' => (int) admin_setting('node_probe_test_count', 3), 'success_tests' => 0,
+            'exit_ip' => null, 'country_code' => null, 'error' => $err, 'fallback' => $fallback,
         ];
 
         if (!function_exists('proc_open')) {
@@ -167,6 +175,8 @@ class NodeProbeService
         // dns 服务器就无法解析。server 已是 IP，连节点不触发 DNS，所以这里不设 detour：
         // 回显域名在节点连上后经代理解析（也正好反映出口侧）。
         $dnsServer = (string) admin_setting('node_probe_dns', '1.1.1.1');
+        // 关键：outbounds 里**只有被测节点**，没有 direct。这样代理握手/TLS/DNS 失败时
+        // 请求直接失败，绝不会偷偷走直连造成「虚假成功」（真连测速的核心要求）。
         $config = [
             'log' => ['level' => 'error'],
             'dns' => ['servers' => [['type' => 'udp', 'tag' => 'r', 'server' => $dnsServer]]],
@@ -176,7 +186,7 @@ class NodeProbeService
                 'listen' => '127.0.0.1',
                 'listen_port' => $port,
             ]],
-            'outbounds' => [$outbound, ['type' => 'direct', 'tag' => 'direct']],
+            'outbounds' => [$outbound],
             'route' => ['final' => 'proxy'],
         ];
         $cfgPath = tempnam(sys_get_temp_dir(), 'sbprobe_') . '.json';
@@ -201,32 +211,64 @@ class NodeProbeService
                 return $fail('sing-box 入站端口未就绪：' . trim(mb_substr($stderr, 0, 300)), false);
             }
 
-            // 4) 通过本地代理请求 IP 回显，拿真实出口 IP + 国家 + 真实延迟
-            $echoUrl = (string) admin_setting('node_probe_ip_echo_url', 'http://ip-api.com/json/?fields=status,countryCode,query');
-            $timeoutMs = $this->timeoutMs();
+            $proxy = "socks5h://127.0.0.1:{$port}";
+            $reqTimeoutSec = max(2, (int) ceil(((int) admin_setting('node_probe_request_timeout_ms', 10000)) / 1000));
+            $latUrl = (string) admin_setting('node_probe_latency_url', 'https://www.gstatic.com/generate_204');
+            $testCount = max(1, min((int) admin_setting('node_probe_test_count', 3), 10));
 
-            $start = microtime(true);
-            $resp = Http::withOptions([
-                'proxy' => "socks5h://127.0.0.1:{$port}",
-                'timeout' => max(2, (int) ceil($timeoutMs / 1000) + 5),
-            ])->get($echoUrl);
-            $latency = (int) round((microtime(true) - $start) * 1000);
-
-            if (!$resp->ok()) {
-                return $fail('通过节点请求 IP 回显失败：HTTP ' . $resp->status(), false);
+            // 4) 真连延迟：通过本地代理把轻量请求（generate_204）经被测节点发出去，连测
+            // 多次。每次都从「开始发请求」计时到「收到有效响应」，不含 Core 启动时间。
+            $latencies = [];
+            $lastErr = null;
+            for ($i = 0; $i < $testCount; $i++) {
+                $t0 = microtime(true);
+                try {
+                    $resp = Http::withOptions(['proxy' => $proxy, 'timeout' => $reqTimeoutSec])->get($latUrl);
+                    if ($resp->status() < 400) {
+                        $latencies[] = (int) round((microtime(true) - $t0) * 1000);
+                    } else {
+                        $lastErr = 'HTTP ' . $resp->status();
+                    }
+                } catch (\Throwable $e) {
+                    // 代理握手 / TLS / DNS / 超时失败 —— 记为该次失败（不会走直连，见上方配置）
+                    $lastErr = $e->getMessage();
+                }
             }
 
-            [$exitIp, $cc] = $this->parseEcho($resp->json(), $resp->body());
-            if (!$exitIp) {
-                return $fail('IP 回显解析失败', false);
+            $successTests = count($latencies);
+            if ($successTests === 0) {
+                return $fail('真连测速失败：' . ($lastErr ?? '无成功请求'), false);
+            }
+            $stats = $this->latencyStats($latencies);
+
+            // 5) 出口 IP + 国家：best-effort，失败不影响「可达」结论（国家回退到节点名解析）
+            $exitIp = null;
+            $cc = null;
+            try {
+                $echoUrl = (string) admin_setting('node_probe_ip_echo_url', 'http://ip-api.com/json/?fields=status,countryCode,query');
+                $echo = Http::withOptions(['proxy' => $proxy, 'timeout' => $reqTimeoutSec])->get($echoUrl);
+                if ($echo->ok()) {
+                    [$exitIp, $cc] = $this->parseEcho($echo->json(), $echo->body());
+                }
+            } catch (\Throwable $e) {
+                // 忽略：出口信息拿不到不影响可达判定
+            }
+            if (!$cc && $exitIp) {
+                $cc = $this->geoip->lookupCountries([$exitIp])[$exitIp] ?? null;
             }
             if (!$cc) {
-                $cc = $this->geoip->lookupCountries([$exitIp])[$exitIp] ?? null;
+                $cc = ServerService::parseCountryFromName($node->name);
             }
 
             return [
                 'ok' => true,
-                'latency_ms' => $latency,
+                'latency_ms' => $stats['min'], // 头部「真连延迟」用最优值
+                'min_latency' => $stats['min'],
+                'avg_latency' => $stats['avg'],
+                'median_latency' => $stats['median'],
+                'max_latency' => $stats['max'],
+                'tests' => $testCount,
+                'success_tests' => $successTests,
                 'exit_ip' => $exitIp,
                 'country_code' => $cc ? strtoupper($cc) : null,
                 'error' => null,
@@ -305,6 +347,22 @@ class NodeProbeService
     {
         $t = (int) admin_setting('server_latency_timeout_ms', 2000);
         return max(200, min($t, 10000));
+    }
+
+    /** 从若干次延迟样本算 min/avg/median/max（毫秒，整数）。 */
+    private function latencyStats(array $latencies): array
+    {
+        sort($latencies);
+        $n = count($latencies);
+        $median = $n % 2
+            ? $latencies[intdiv($n, 2)]
+            : (int) round(($latencies[$n / 2 - 1] + $latencies[$n / 2]) / 2);
+        return [
+            'min' => $latencies[0],
+            'max' => $latencies[$n - 1],
+            'avg' => (int) round(array_sum($latencies) / $n),
+            'median' => (int) $median,
+        ];
     }
 
     private function execUsable(): bool

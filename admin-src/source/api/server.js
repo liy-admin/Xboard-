@@ -12,6 +12,16 @@ export function getNodeSyncStats() {
     return http.get(sp() + "/server/manage/syncStats");
 }
 
+// 手动触发测速（后台异步）：传 ids 测这几个；不传测全部
+export function probeNodeLatency(ids) {
+    return http.post(sp() + "/server/manage/probeLatency", ids && ids.length ? { ids } : {});
+}
+
+// 测速进度（供进度条轮询，刷新后仍可见）
+export function getNodeProbeStatus() {
+    return http.get(sp() + "/server/manage/probeStatus");
+}
+
 export function saveNode(data) {
     return http.post(sp() + "/server/manage/save", data);
 }

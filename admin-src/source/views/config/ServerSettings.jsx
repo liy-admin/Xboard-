@@ -16,9 +16,11 @@ const DEFAULTS = {
     server_latency_stale_seconds: 600, server_dedup_by_country: false,
     server_country_naming: true, server_auto_manage_visibility: false,
     geoip_method: "api", geoip_maxmind_db_path: "",
-    node_probe_mode: "tcp", node_probe_singbox_path: "",
+    node_probe_mode: "singbox", node_probe_singbox_path: "",
     node_probe_singbox_auto_download: true, node_probe_singbox_version: "1.14.2",
     node_probe_ip_echo_url: "http://ip-api.com/json/?fields=status,countryCode,query",
+    node_probe_latency_url: "https://www.gstatic.com/generate_204",
+    node_probe_test_count: 3, node_probe_request_timeout_ms: 10000,
 };
 
 function generateToken() {
@@ -178,6 +180,21 @@ export function ServerSettings() {
                                     <div className="text-base font-medium">{t("server.node_probe_singbox_path.title")}</div>
                                     <Input placeholder={t("server.node_probe_singbox_path.placeholder")} value={values.node_probe_singbox_path ?? ""} onChange={(e) => setField("node_probe_singbox_path", e.target.value)} />
                                     <p className="text-sm text-muted-foreground">{t("server.node_probe_singbox_path.description")}</p>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <div className="text-base font-medium">{t("server.node_probe_latency_url.title")}</div>
+                                    <Input placeholder={t("server.node_probe_latency_url.placeholder")} value={values.node_probe_latency_url ?? ""} onChange={(e) => setField("node_probe_latency_url", e.target.value)} />
+                                    <p className="text-sm text-muted-foreground">{t("server.node_probe_latency_url.description")}</p>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <div className="text-base font-medium">{t("server.node_probe_test_count.title")}</div>
+                                    <Input type="number" placeholder="3" value={values.node_probe_test_count ?? ""} onChange={(e) => setField("node_probe_test_count", e.target.value ? Number(e.target.value) : null)} />
+                                    <p className="text-sm text-muted-foreground">{t("server.node_probe_test_count.description")}</p>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <div className="text-base font-medium">{t("server.node_probe_request_timeout_ms.title")}</div>
+                                    <Input type="number" placeholder="10000" value={values.node_probe_request_timeout_ms ?? ""} onChange={(e) => setField("node_probe_request_timeout_ms", e.target.value ? Number(e.target.value) : null)} />
+                                    <p className="text-sm text-muted-foreground">{t("server.node_probe_request_timeout_ms.description")}</p>
                                 </div>
                                 <div className="space-y-1.5">
                                     <div className="text-base font-medium">{t("server.node_probe_ip_echo_url.title")}</div>

@@ -130,6 +130,9 @@ class ConfigSave extends FormRequest
         'node_probe_singbox_auto_download' => 'boolean',
         'node_probe_singbox_version' => 'nullable|string',
         'node_probe_ip_echo_url' => 'nullable|url',
+        'node_probe_latency_url' => 'nullable|url',
+        'node_probe_test_count' => 'integer|min:1|max:10',
+        'node_probe_request_timeout_ms' => 'integer|min:1000|max:30000',
         'node_probe_dns' => 'nullable|string',
         // frontend
         'frontend_theme' => '',
