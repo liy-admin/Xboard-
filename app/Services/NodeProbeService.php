@@ -270,24 +270,30 @@ class NodeProbeService
         ];
         $cfgPath = tempnam(sys_get_temp_dir(), 'sbprobe_') . '.json';
         file_put_contents($cfgPath, json_encode($config, JSON_UNESCAPED_UNICODE));
+        // sing-box 的 stdout/stderr 重定向到文件：避免管道写满把子进程阻塞（proc_open
+        // 经典坑），同时失败时能读全它自己的报错。
+        $logPath = $cfgPath . '.log';
 
-        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $descriptors = [0 => ['pipe', 'r'], 1 => ['file', $logPath, 'w'], 2 => ['file', $logPath, 'a']];
         $proc = @proc_open([$binary, 'run', '-c', $cfgPath], $descriptors, $pipes);
         if (!is_resource($proc)) {
             @unlink($cfgPath);
             return $fail("无法启动 sing-box（检查 node_probe_singbox_path：{$binary}）");
         }
-        foreach ([1, 2] as $i) {
-            if (isset($pipes[$i])) {
-                stream_set_blocking($pipes[$i], false);
-            }
-        }
+
+        $readLog = function () use ($logPath): string {
+            $s = @file_get_contents($logPath);
+            return $s ? trim(mb_substr($s, -400)) : '';
+        };
+        $procAlive = function () use ($proc): bool {
+            $st = @proc_get_status($proc);
+            return is_array($st) && !empty($st['running']);
+        };
 
         try {
             // 3) 等本地入站端口就绪
             if (!$this->waitPort($port, 6000)) {
-                $stderr = isset($pipes[2]) ? stream_get_contents($pipes[2]) : '';
-                return $fail('sing-box 入站端口未就绪：' . trim(mb_substr($stderr, 0, 300)));
+                return $fail('sing-box 入站端口未就绪：' . ($readLog() ?: '（无日志，可能 sing-box 未能启动）'));
             }
 
             $proxy = "socks5h://127.0.0.1:{$port}";
@@ -317,7 +323,13 @@ class NodeProbeService
 
             $successTests = count($latencies);
             if ($successTests === 0) {
-                // 真的测了、但一次都没通 —— 这才是节点不可达
+                // 一次都没通。若 sing-box 已退出或有日志，多半是「没法测」（配置/
+                // 协议/核心问题）而非节点不可达——带上 sing-box 日志便于定位。
+                $log = $readLog();
+                if (!$procAlive() || $log !== '') {
+                    return $fail('真连测速未完成（sing-box 异常）：' . ($log ?: $lastErr ?? '') . ' | 请求错误：' . ($lastErr ?? ''));
+                }
+                // 真的测了、sing-box 也活着、但一次都没通 —— 这才是节点不可达
                 return $fail('真连测速失败：' . ($lastErr ?? '无成功请求'), false);
             }
             $stats = $this->latencyStats($latencies);
@@ -355,18 +367,17 @@ class NodeProbeService
                 'error' => null,
             ];
         } catch (\Throwable $e) {
-            return $fail('sing-box 探测异常：' . $e->getMessage());
+            return $fail('sing-box 探测异常：' . $e->getMessage() . ($readLog() ? ' | sing-box: ' . $readLog() : ''));
         } finally {
-            foreach ($pipes as $p) {
-                if (is_resource($p)) {
-                    fclose($p);
-                }
+            if (isset($pipes[0]) && is_resource($pipes[0])) {
+                fclose($pipes[0]);
             }
             if (is_resource($proc)) {
                 @proc_terminate($proc);
                 @proc_close($proc);
             }
             @unlink($cfgPath);
+            @unlink($logPath);
         }
     }
 
