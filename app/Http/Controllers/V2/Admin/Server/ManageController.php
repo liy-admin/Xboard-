@@ -10,6 +10,7 @@ use App\Jobs\ProbeNodeLatencyJob;
 use App\Models\Server;
 use App\Models\ServerGroup;
 use App\Models\User;
+use App\Services\NodeProbeService;
 use App\Services\ProxyParserService;
 use App\Services\ServerService;
 use Illuminate\Http\Request;
@@ -153,6 +154,21 @@ class ManageController extends Controller
             Log::warning('spawnProbe 失败', ['message' => $e->getMessage()]);
             return false;
         }
+    }
+
+    /**
+     * 诊断 sing-box 测速是否可用：检查/下载 sing-box，并对一个样本节点实跑一次，
+     * 返回成功或失败原因。供「测试 sing-box」按钮同步调用。
+     */
+    public function probeDiagnose(Request $request, NodeProbeService $prober)
+    {
+        $id = $request->input('id');
+        $node = $id
+            ? Server::whereNull('parent_id')->find($id)
+            : (Server::whereNull('parent_id')->where('show', true)->first()
+                ?? Server::whereNull('parent_id')->first());
+
+        return $this->success($prober->diagnose($node));
     }
 
     /** 测速进度（供管理端进度条轮询）。 */

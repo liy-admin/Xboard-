@@ -118,6 +118,7 @@ class ConfigSave extends FormRequest
         'server_ws_url' => 'nullable|url',
         // 节点测速 + 按国家去重下发
         'server_latency_probe_enable' => 'boolean',
+        'server_latency_probe_interval' => 'integer|min:1|max:1440',
         'server_latency_timeout_ms' => 'integer|min:200|max:10000',
         'server_latency_stale_seconds' => 'integer|min:60',
         'server_dedup_by_country' => 'boolean',

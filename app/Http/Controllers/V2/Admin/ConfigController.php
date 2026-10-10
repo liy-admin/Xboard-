@@ -235,6 +235,7 @@ class ConfigController extends Controller
                 'server_ws_enable' => (bool) admin_setting('server_ws_enable', 1),
                 'server_ws_url' => admin_setting('server_ws_url', ''),
                 'server_latency_probe_enable' => (bool) admin_setting('server_latency_probe_enable', 1),
+                'server_latency_probe_interval' => (int) admin_setting('server_latency_probe_interval', 3),
                 'server_latency_timeout_ms' => (int) admin_setting('server_latency_timeout_ms', 2000),
                 'server_latency_stale_seconds' => (int) admin_setting('server_latency_stale_seconds', 600),
                 'server_dedup_by_country' => (bool) admin_setting('server_dedup_by_country', 0),

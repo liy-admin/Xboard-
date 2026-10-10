@@ -2738,6 +2738,24 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "title": "启用自动测速",
         "description": "面板定时探测每个节点的延迟并自动解析所在国家。关闭后不再探测。"
       },
+      "server_latency_probe_interval": {
+        "title": "自动测速间隔（分钟）",
+        "description": "每隔多少分钟自动测速一次。sing-box 实跑较慢、节点多时建议放宽（如 10–30）。1–1440，默认 3。"
+      },
+      "probe_diagnose": {
+        "title": "测试 sing-box",
+        "description": "检查 sing-box 能否下载/运行，并对一个节点实跑一次，直接给出成功或失败原因。",
+        "button": "测试 sing-box",
+        "running": "测试中（首次可能需下载 sing-box，请稍候）…",
+        "ready": "就绪",
+        "unavailable": "不可用",
+        "sample": "样本节点",
+        "passed": "真连测速通过",
+        "failed": "真连测速失败",
+        "untestable": "无法测试",
+        "exit": "出口",
+        "no_node": "没有可用于测试的节点（请先添加节点）。"
+      },
       "node_probe_mode": {
         "title": "探测方式",
         "description": "TCP：对节点做 TCP 握手测延迟，国家优先从节点名解析（轻量，无需额外依赖）。sing-box：面板用 sing-box 核心实际跑一遍节点，测真实出口 IP、延迟和落地国——对中转节点也能判准落地国，但需在面板宿主机安装 sing-box。",
@@ -3243,6 +3261,8 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "balance": "余额",
       "commission": "佣金",
       "register_time": "注册时间",
+      "invite_code": "邀请码",
+      "inviter": "邀请人",
       "actions": "操作",
       "next_reset_at": "下次重置时间",
       "device_limit": {

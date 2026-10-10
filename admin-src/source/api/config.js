@@ -10,6 +10,11 @@ export function saveSettings(settings) {
     return http.post(sp() + "/config/save", settings);
 }
 
+// 诊断 sing-box 测速是否可用（检查/下载 sing-box + 对一个样本节点实跑一次）
+export function diagnoseProbe() {
+    return http.get(sp() + "/server/manage/probeDiagnose");
+}
+
 export function uploadDiscoverHtml(file) {
     const form = new FormData();
     form.append("file", file);

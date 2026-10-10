@@ -1812,6 +1812,24 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "title": "Bật tự động đo tốc độ",
         "description": "Định kỳ đo độ trễ của từng node và tự động xác định quốc gia. Tắt để ngừng đo."
       },
+      "server_latency_probe_interval": {
+        "title": "Chu kỳ tự đo (phút)",
+        "description": "Bao nhiêu phút tự đo một lần. sing-box chạy thật khá chậm; nên nới rộng (vd 10–30) khi có nhiều node. 1–1440, mặc định 3."
+      },
+      "probe_diagnose": {
+        "title": "Kiểm tra sing-box",
+        "description": "Kiểm tra sing-box có tải/chạy được không, và chạy thật một node để báo rõ lý do thành công/thất bại.",
+        "button": "Kiểm tra sing-box",
+        "running": "Đang kiểm tra (lần đầu có thể tải sing-box, vui lòng đợi)…",
+        "ready": "sẵn sàng",
+        "unavailable": "không khả dụng",
+        "sample": "Node mẫu",
+        "passed": "đo thật thành công",
+        "failed": "đo thật thất bại",
+        "untestable": "không thể kiểm tra",
+        "exit": "lối ra",
+        "no_node": "Không có node để kiểm tra (hãy thêm node trước)."
+      },
       "node_probe_mode": {
         "title": "Phương thức đo",
         "description": "TCP: TCP handshake để đo độ trễ, quốc gia ưu tiên lấy từ tên node (nhẹ, không cần phụ thuộc thêm). sing-box: panel thực sự chạy từng node qua lõi sing-box để đo IP lối ra thật, độ trễ và quốc gia đích — chính xác cả với node trung chuyển, nhưng cần cài sing-box trên máy chủ panel.",
@@ -2943,6 +2961,8 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
       "balance": "Số dư",
       "commission": "Hoa hồng",
       "register_time": "Ngày đăng ký",
+      "invite_code": "Mã mời",
+      "inviter": "Người mời",
       "actions": "Thao tác",
       "next_reset_at": "Reset tiếp theo",
       "device_limit": {

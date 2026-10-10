@@ -45,6 +45,53 @@ class NodeProbeService
         return $this->probeViaTcp($node);
     }
 
+    /**
+     * 诊断：检查 sing-box 是否就绪（可自动下载/能运行），并对一个样本节点实跑一次，
+     * 返回可读的成功/失败信息。供管理端「测试 sing-box」按钮用。
+     */
+    public function diagnose(?Server $node): array
+    {
+        $mode = (string) admin_setting('node_probe_mode', 'singbox');
+
+        $binaryInfo = ['ok' => false, 'path' => null, 'version' => null, 'error' => null];
+        if (!function_exists('proc_open')) {
+            $binaryInfo['error'] = 'proc_open 被禁用，无法启动 sing-box';
+        } else {
+            $binary = $this->singbox->resolve();
+            if ($binary) {
+                $binaryInfo['ok'] = true;
+                $binaryInfo['path'] = $binary;
+                $out = @shell_exec(escapeshellarg($binary) . ' version 2>&1');
+                if (is_string($out) && preg_match('/sing-box version (\S+)/', $out, $m)) {
+                    $binaryInfo['version'] = $m[1];
+                }
+            } else {
+                $binaryInfo['error'] = 'sing-box 不可用：自动下载失败（容器可能无法访问 GitHub），或未安装。可在下方填自定义路径。';
+            }
+        }
+
+        $sample = null;
+        if ($node) {
+            $r = $this->probe($node);
+            $sample = [
+                'node_id' => $node->id,
+                'node_name' => $node->name,
+                'host' => $node->host,
+                'type' => $node->type,
+                'ok' => (bool) ($r['ok'] ?? false),
+                'latency_ms' => $r['latency_ms'] ?? null,
+                'exit_ip' => $r['exit_ip'] ?? null,
+                'country_code' => $r['country_code'] ?? null,
+                'tests' => $r['tests'] ?? null,
+                'success_tests' => $r['success_tests'] ?? null,
+                'untestable' => (bool) ($r['untestable'] ?? false),
+                'error' => $r['error'] ?? null,
+            ];
+        }
+
+        return ['mode' => $mode, 'singbox' => $binaryInfo, 'sample' => $sample];
+    }
+
     // ---------------------------------------------------------------------
     // 轻量模式：TCP 握手 + 名字/GeoIP 判国家
     // ---------------------------------------------------------------------

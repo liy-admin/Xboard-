@@ -44,8 +44,18 @@ class Kernel extends ConsoleKernel
         $schedule->command('horizon:snapshot')->everyFiveMinutes()->onOneServer();
         // cleanup stale online_count (GC for Redis TTL expiration)
         $schedule->command('cleanup:online-status')->everyFiveMinutes()->onOneServer();
-        // 节点测速（TCP 握手 / ICMP ping）+ GeoIP 国家解析；命令内部受 server_latency_probe_enable 控制
-        $schedule->command('check:server-latency')->everyThreeMinutes()->onOneServer()->withoutOverlapping(10)->runInBackground();
+        // 节点测速 + 国家解析；间隔可在后台配置（server_latency_probe_interval，分钟），
+        // 命令内部受 server_latency_probe_enable 控制
+        $probeInterval = (int) admin_setting('server_latency_probe_interval', 3);
+        $probeInterval = max(1, min($probeInterval, 1440));
+        $probeCron = $probeInterval >= 60
+            ? ($probeInterval % 60 === 0 ? '0 */' . intdiv($probeInterval, 60) . ' * * *' : '0 * * * *')
+            : '*/' . $probeInterval . ' * * * *';
+        $schedule->command('check:server-latency')
+            ->cron($probeCron)
+            ->onOneServer()
+            ->withoutOverlapping(max(10, $probeInterval)) // 长间隔/慢探测时锁别过早过期
+            ->runInBackground();
         // backup Timing
         // if (env('ENABLE_AUTO_BACKUP_AND_UPDATE', false)) {
         //     $schedule->command('backup:database', ['true'])->daily()->onOneServer();

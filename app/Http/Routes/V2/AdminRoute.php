@@ -89,6 +89,7 @@ class AdminRoute
                 $router->get('/syncStats', [ManageController::class, 'syncStats']);
                 $router->post('/probeLatency', [ManageController::class, 'probeLatency']);
                 $router->get('/probeStatus', [ManageController::class, 'probeStatus']);
+                $router->get('/probeDiagnose', [ManageController::class, 'probeDiagnose']);
                 $router->post('/update', [ManageController::class, 'update']);
                 $router->post('/save', [ManageController::class, 'save']);
                 $router->post('/drop', [ManageController::class, 'drop']);

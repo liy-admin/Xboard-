@@ -1824,6 +1824,24 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "title": "Enable auto speed test",
         "description": "Periodically probe each node's latency and auto-resolve its country. Disable to stop probing."
       },
+      "server_latency_probe_interval": {
+        "title": "Auto test interval (minutes)",
+        "description": "How often to auto-probe. sing-box real-run is slow; widen it (e.g. 10–30) when you have many nodes. 1–1440, default 3."
+      },
+      "probe_diagnose": {
+        "title": "Test sing-box",
+        "description": "Check whether sing-box can be downloaded/run, and real-run one node to show the exact success/failure reason.",
+        "button": "Test sing-box",
+        "running": "Testing (first run may download sing-box, please wait)…",
+        "ready": "ready",
+        "unavailable": "unavailable",
+        "sample": "Sample node",
+        "passed": "real-delay passed",
+        "failed": "real-delay failed",
+        "untestable": "cannot test",
+        "exit": "exit",
+        "no_node": "No node available to test (add a node first)."
+      },
       "node_probe_mode": {
         "title": "Probe method",
         "description": "TCP: TCP handshake for latency, country parsed from the node name first (lightweight, no extra dependency). sing-box: the panel actually runs each node through the sing-box core to measure the real exit IP, latency and landing country — correct even for relay nodes, but requires sing-box installed on the panel host.",
@@ -3228,6 +3246,8 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "balance": "Balance",
       "commission": "Commission",
       "register_time": "Register Time",
+      "invite_code": "Invite Code",
+      "inviter": "Inviter",
       "actions": "Actions",
       "next_reset_at": "Next Reset At",
       "device_limit": {

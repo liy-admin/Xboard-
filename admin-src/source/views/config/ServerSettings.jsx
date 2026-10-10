@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "../../i18n/index.js";
-import { getSettings, saveSettings } from "../../api/config.js";
+import { getSettings, saveSettings, diagnoseProbe } from "../../api/config.js";
 import { useAuthState } from "../../store/auth.js";
 import { Input } from "../../components/Input.jsx";
 import { Button } from "../../components/Button.jsx";
@@ -12,7 +12,7 @@ import isEqual from "lodash/isEqual";
 const DEFAULTS = {
     server_pull_interval: 0, server_push_interval: 0, server_token: "",
     device_limit_mode: 0, server_ws_enable: false, server_ws_url: "",
-    server_latency_probe_enable: true, server_latency_timeout_ms: 2000,
+    server_latency_probe_enable: true, server_latency_probe_interval: 3, server_latency_timeout_ms: 2000,
     server_latency_stale_seconds: 600, server_dedup_by_country: false,
     server_country_naming: true, server_auto_manage_visibility: false,
     geoip_method: "api", geoip_maxmind_db_path: "",
@@ -40,6 +40,21 @@ export function ServerSettings() {
     const [saving, setSaving] = useState(false);
     const [ready, setReady] = useState(false);
     const lastSavedRef = useRef(null);
+    const [diagLoading, setDiagLoading] = useState(false);
+    const [diagResult, setDiagResult] = useState(null);
+
+    const runDiagnose = async () => {
+        setDiagLoading(true);
+        setDiagResult(null);
+        try {
+            const res = await diagnoseProbe();
+            setDiagResult(res?.data ?? { error: "no data" });
+        } catch (e) {
+            setDiagResult({ requestError: e?.response?.data?.message || e?.message || "请求失败" });
+        } finally {
+            setDiagLoading(false);
+        }
+    };
 
     useEffect(() => {
         Promise.all([
@@ -151,6 +166,11 @@ export function ServerSettings() {
                 {values.server_latency_probe_enable && (
                     <>
                         <div className="space-y-1.5">
+                            <div className="text-base font-medium">{t("server.server_latency_probe_interval.title")}</div>
+                            <Input type="number" placeholder="3" value={values.server_latency_probe_interval ?? ""} onChange={(e) => setField("server_latency_probe_interval", e.target.value ? Number(e.target.value) : null)} />
+                            <p className="text-sm text-muted-foreground">{t("server.server_latency_probe_interval.description")}</p>
+                        </div>
+                        <div className="space-y-1.5">
                             <div className="text-base font-medium">{t("server.node_probe_mode.title")}</div>
                             <select
                                 className="inline-flex h-9 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
@@ -168,6 +188,21 @@ export function ServerSettings() {
                                     <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" width="1.2em" height="1.2em"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8.01 8.01 0 0 1-8 8m0-8.5a1 1 0 0 0-1 1v3a1 1 0 0 0 2 0v-3a1 1 0 0 0-1-1m0-4a1.25 1.25 0 1 0 1.25 1.25A1.25 1.25 0 0 0 12 7.5" /></svg>
                                     <span>{t("server.node_probe_mode.singbox_hint")}</span>
                                 </div>
+
+                                <div className="space-y-2 rounded-lg border p-4">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div>
+                                            <div className="text-base font-medium">{t("server.probe_diagnose.title")}</div>
+                                            <p className="text-sm text-muted-foreground">{t("server.probe_diagnose.description")}</p>
+                                        </div>
+                                        <Button variant="outline" size="sm" onClick={runDiagnose} loading={diagLoading} disabled={diagLoading}>
+                                            {t("server.probe_diagnose.button")}
+                                        </Button>
+                                    </div>
+                                    {diagLoading && <p className="text-sm text-muted-foreground">{t("server.probe_diagnose.running")}</p>}
+                                    {diagResult && <DiagnoseResult r={diagResult} t={t} />}
+                                </div>
+
                                 <ToggleField label={t("server.node_probe_singbox_auto_download.title")} description={t("server.node_probe_singbox_auto_download.description")} checked={values.node_probe_singbox_auto_download ?? true} onChange={(v) => setField("node_probe_singbox_auto_download", v)} />
                                 {values.node_probe_singbox_auto_download && (
                                     <div className="space-y-1.5">
@@ -257,6 +292,47 @@ function ToggleField({ label, description, checked, onChange }) {
                 {description && <p className="text-sm text-muted-foreground">{description}</p>}
             </div>
             <Switch checked={checked} onCheckedChange={onChange} />
+        </div>
+    );
+}
+
+// sing-box 诊断结果展示
+function DiagnoseResult({ r, t }) {
+    if (r.requestError) {
+        return <div className="rounded-md bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">{r.requestError}</div>;
+    }
+    const sb = r.singbox || {};
+    const sample = r.sample;
+    const Line = ({ ok, children }) => (
+        <div className="flex items-start gap-2 text-sm">
+            <span className={ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>{ok ? "✓" : "✗"}</span>
+            <span className="min-w-0 break-all">{children}</span>
+        </div>
+    );
+    return (
+        <div className="space-y-1.5 rounded-md bg-muted/40 p-3">
+            <Line ok={sb.ok}>
+                {sb.ok
+                    ? `sing-box ${t("server.probe_diagnose.ready")}${sb.version ? ` (v${sb.version})` : ""}`
+                    : `sing-box ${t("server.probe_diagnose.unavailable")}：${sb.error || ""}`}
+            </Line>
+            {sb.ok && sb.path && <div className="pl-5 font-mono text-[11px] text-muted-foreground break-all">{sb.path}</div>}
+            {sample ? (
+                sample.untestable ? (
+                    <Line ok={false}>{t("server.probe_diagnose.sample")}「{sample.node_name}」{t("server.probe_diagnose.untestable")}：{sample.error || ""}</Line>
+                ) : sample.ok ? (
+                    <Line ok>
+                        {t("server.probe_diagnose.sample")}「{sample.node_name}」{t("server.probe_diagnose.passed")}：{sample.latency_ms}ms
+                        {sample.success_tests != null ? ` (${sample.success_tests}/${sample.tests})` : ""}
+                        {sample.country_code ? ` · ${sample.country_code}` : ""}
+                        {sample.exit_ip ? ` · ${t("server.probe_diagnose.exit")} ${sample.exit_ip}` : ""}
+                    </Line>
+                ) : (
+                    <Line ok={false}>{t("server.probe_diagnose.sample")}「{sample.node_name}」{t("server.probe_diagnose.failed")}：{sample.error || ""}</Line>
+                )
+            ) : (
+                <div className="pl-5 text-sm text-muted-foreground">{t("server.probe_diagnose.no_node")}</div>
+            )}
         </div>
     );
 }
