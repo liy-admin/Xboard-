@@ -279,7 +279,7 @@ class NodeProbeService
         }
         foreach ([1, 2] as $i) {
             if (isset($pipes[$i])) {
-                stream_set_blocking($pipes[$i]);
+                stream_set_blocking($pipes[$i], false);
             }
         }
 
@@ -303,7 +303,7 @@ class NodeProbeService
             for ($i = 0; $i < $testCount; $i++) {
                 $t0 = microtime(true);
                 try {
-                    $resp = Http::withOptions(['proxy' => $proxy, 'timeout' => $reqTimeoutSec])->get($latUrl);
+                    $resp = Http::withOptions(['proxy' => $proxy, 'timeout' => $reqTimeoutSec, 'verify' => false])->get($latUrl);
                     if ($resp->status() < 400) {
                         $latencies[] = (int) round((microtime(true) - $t0) * 1000);
                     } else {
@@ -327,7 +327,7 @@ class NodeProbeService
             $cc = null;
             try {
                 $echoUrl = (string) admin_setting('node_probe_ip_echo_url', 'http://ip-api.com/json/?fields=status,countryCode,query');
-                $echo = Http::withOptions(['proxy' => $proxy, 'timeout' => $reqTimeoutSec])->get($echoUrl);
+                $echo = Http::withOptions(['proxy' => $proxy, 'timeout' => $reqTimeoutSec, 'verify' => false])->get($echoUrl);
                 if ($echo->ok()) {
                     [$exitIp, $cc] = $this->parseEcho($echo->json(), $echo->body());
                 }
@@ -544,7 +544,7 @@ class NodeProbeService
         if (!$sock) {
             return null;
         }
-        $name = stream_socket_get_name($sock);
+        $name = stream_socket_get_name($sock, false);
         fclose($sock);
         $port = (int) substr($name, strrpos($name, ':') + 1);
         return $port ?: null;
