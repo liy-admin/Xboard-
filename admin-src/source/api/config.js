@@ -10,9 +10,10 @@ export function saveSettings(settings) {
     return http.post(sp() + "/config/save", settings);
 }
 
-// 诊断 sing-box 测速是否可用（检查/下载 sing-box + 对一个样本节点实跑一次）
+// 诊断 sing-box 测速是否可用（检查/下载 sing-box + 对一个样本节点实跑一次）。
+// 首次可能要下载 sing-box，单独放宽超时到 120s，避免默认 30s 误判超时。
 export function diagnoseProbe() {
-    return http.get(sp() + "/server/manage/probeDiagnose");
+    return http.get(sp() + "/server/manage/probeDiagnose", { timeout: 120000 });
 }
 
 export function uploadDiscoverHtml(file) {

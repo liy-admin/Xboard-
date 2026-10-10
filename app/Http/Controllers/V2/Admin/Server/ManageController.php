@@ -168,7 +168,17 @@ class ManageController extends Controller
             : (Server::whereNull('parent_id')->where('show', true)->first()
                 ?? Server::whereNull('parent_id')->first());
 
-        return $this->success($prober->diagnose($node));
+        try {
+            return $this->success($prober->diagnose($node));
+        } catch (\Throwable $e) {
+            Log::error('probeDiagnose 异常', ['message' => $e->getMessage()]);
+            // 返回结构化错误，让前端内联展示原因，而不是弹通用报错
+            return $this->success([
+                'mode' => admin_setting('node_probe_mode', 'singbox'),
+                'singbox' => ['ok' => false, 'path' => null, 'version' => null, 'error' => '诊断异常：' . $e->getMessage()],
+                'sample' => null,
+            ]);
+        }
     }
 
     /** 测速进度（供管理端进度条轮询）。 */

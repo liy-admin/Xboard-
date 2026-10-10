@@ -28,21 +28,37 @@ class NodeProbeService
     ) {
     }
 
-    public function probe(Server $node): array
+    /**
+     * @param array $overrides 可覆盖 test_count / request_timeout_ms（诊断用快速探测）
+     */
+    public function probe(Server $node, array $overrides = []): array
     {
-        $mode = admin_setting('node_probe_mode', 'singbox');
-        if ($mode === 'singbox') {
-            $result = $this->probeViaSingbox($node);
-            // 绝不回退到 TCP 握手：TCP 通只能说明端口开着，不能说明这个节点真的能用
-            // （uuid/密码错、协议/传输不匹配、证书失效都照样握手成功），回退会把
-            // "链接其实用不了"的节点误判成连通——假阳性。真连测不通就是不可达。
-            // 仅在国家为空时用节点名补一下，纯展示用，不参与可达判定。
-            if (!$result['ok'] && empty($result['country_code'])) {
-                $result['country_code'] = ServerService::parseCountryFromName($node->name);
+        try {
+            $mode = admin_setting('node_probe_mode', 'singbox');
+            if ($mode === 'singbox') {
+                $result = $this->probeViaSingbox($node, $overrides);
+                // 绝不回退到 TCP 握手：TCP 通只能说明端口开着，不能说明这个节点真的能用
+                // （uuid/密码错、协议/传输不匹配、证书失效都照样握手成功），回退会把
+                // "链接其实用不了"的节点误判成连通——假阳性。真连测不通就是不可达。
+                // 仅在国家为空时用节点名补一下，纯展示用，不参与可达判定。
+                if (!$result['ok'] && empty($result['country_code'])) {
+                    $result['country_code'] = ServerService::parseCountryFromName($node->name);
+                }
+                return $result;
             }
-            return $result;
+            return $this->probeViaTcp($node);
+        } catch (\Throwable $e) {
+            // probe 绝不抛异常：否则会把定时任务/诊断接口整个打挂（500）。
+            // 异常当作「没法测」（untestable），保留节点上次结果，不判不可达。
+            Log::warning('NodeProbeService::probe 异常', ['node' => $node->id, 'message' => $e->getMessage()]);
+            return [
+                'ok' => false, 'latency_ms' => null,
+                'min_latency' => null, 'avg_latency' => null, 'median_latency' => null, 'max_latency' => null,
+                'tests' => 0, 'success_tests' => 0, 'exit_ip' => null,
+                'country_code' => ServerService::parseCountryFromName($node->name),
+                'error' => '探测异常：' . $e->getMessage(), 'untestable' => true,
+            ];
         }
-        return $this->probeViaTcp($node);
     }
 
     /**
@@ -71,8 +87,9 @@ class NodeProbeService
         }
 
         $sample = null;
-        if ($node) {
-            $r = $this->probe($node);
+        if ($node && $binaryInfo['ok']) {
+            // 诊断用快速探测：只测 1 次、超时收紧到 6s，避免整个请求拖太久被前端判超时
+            $r = $this->probe($node, ['test_count' => 1, 'request_timeout_ms' => 6000]);
             $sample = [
                 'node_id' => $node->id,
                 'node_name' => $node->name,
@@ -175,7 +192,7 @@ class NodeProbeService
     // 精确模式：sing-box 实跑 + 真实出口 IP
     // ---------------------------------------------------------------------
 
-    private function probeViaSingbox(Server $node): array
+    private function probeViaSingbox(Server $node, array $overrides = []): array
     {
         // $untestable=true 表示「根本没测成」（协议不支持 / 该组没有可用用户 /
         // sing-box 起不来等基础设施问题），不是节点本身不通——调用方据此保留上次
@@ -265,9 +282,10 @@ class NodeProbeService
             }
 
             $proxy = "socks5h://127.0.0.1:{$port}";
-            $reqTimeoutSec = max(2, (int) ceil(((int) admin_setting('node_probe_request_timeout_ms', 10000)) / 1000));
+            $reqTimeoutMs = (int) ($overrides['request_timeout_ms'] ?? admin_setting('node_probe_request_timeout_ms', 10000));
+            $reqTimeoutSec = max(2, (int) ceil($reqTimeoutMs / 1000));
             $latUrl = (string) admin_setting('node_probe_latency_url', 'https://www.gstatic.com/generate_204');
-            $testCount = max(1, min((int) admin_setting('node_probe_test_count', 3), 10));
+            $testCount = max(1, min((int) ($overrides['test_count'] ?? admin_setting('node_probe_test_count', 3)), 10));
 
             // 4) 真连延迟：通过本地代理把轻量请求（generate_204）经被测节点发出去，连测
             // 多次。每次都从「开始发请求」计时到「收到有效响应」，不含 Core 启动时间。
