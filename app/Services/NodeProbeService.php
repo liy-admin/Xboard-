@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Server;
 use App\Models\User;
 use App\Protocols\SingBoxProbe;
+use App\Utils\Helper;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -104,6 +105,14 @@ class NodeProbeService
                 'untestable' => (bool) ($r['untestable'] ?? false),
                 'error' => $r['error'] ?? null,
             ];
+            // 「无法测试」时进一步排查到底卡在哪一步，给出可读原因
+            if (!$sample['ok'] && $sample['untestable']) {
+                $exp = $this->explainOutbound($node);
+                if (!$exp['ok']) {
+                    $sample['error'] = $exp['reason'];
+                    $sample['setup'] = $exp['detail'];
+                }
+            }
         }
 
         return ['mode' => $mode, 'singbox' => $binaryInfo, 'sample' => $sample];
@@ -361,7 +370,14 @@ class NodeProbeService
         }
     }
 
-    /** 复用订阅逻辑：取可用用户 -> getAvailableServers -> 生成单节点 outbound。 */
+    /**
+     * 为该节点生成单节点 sing-box outbound。
+     *
+     * 注意：**不走 getAvailableServers**（它会 where('show', true) 过滤掉隐藏节点）。
+     * 测速必须能测隐藏节点——否则「按测速自动显隐」永远没法把隐藏节点重新测通、
+     * 重新显示（死循环）。这里只要该节点的权限组里有一个可用用户，就直接用它的
+     * 凭据生成 outbound，和 show / 流量无关。
+     */
     private function buildOutbound(Server $node): ?array
     {
         $groupIds = $node->group_ids ?? [];
@@ -378,18 +394,81 @@ class NodeProbeService
             return null;
         }
 
-        $servers = ServerService::getAvailableServers($user);
-        $target = collect($servers)->firstWhere('id', $node->id);
-        if (!$target) {
-            return null;
-        }
-
         try {
-            return (new SingBoxProbe($user, [$target]))->buildSingleOutbound();
+            return (new SingBoxProbe($user, [$this->buildTargetArray($node, $user)]))->buildSingleOutbound();
         } catch (\Throwable $e) {
             Log::warning('NodeProbeService: 生成 outbound 失败', ['node' => $node->id, 'message' => $e->getMessage()]);
             return null;
         }
+    }
+
+    /**
+     * 为单个节点+用户生成 SingBox 协议类需要的数组（等价于 getAvailableServers
+     * 对单节点做的那几步：动态端口、按用户生成密码、当前倍率），但不做 show/流量过滤。
+     * 用 clone 避免污染原模型（原模型随后还要 saveQuietly 写测速字段）。
+     */
+    private function buildTargetArray(Server $node, User $user): array
+    {
+        $server = clone $node;
+        if (str_contains((string) $server->port, '-')) {
+            $server->ports = $server->port;
+            $server->port = (int) Helper::randomPort($server->port);
+        } else {
+            $server->port = (int) $server->port;
+        }
+        $server->password = $server->generateServerPassword($user);
+        $server->rate = $server->getCurrentRate();
+        return $server->toArray();
+    }
+
+    /**
+     * 逐步排查「为什么生成不了该节点的 outbound」，返回可读原因。诊断专用。
+     * @return array{ok:bool, reason:?string, detail:array}
+     */
+    public function explainOutbound(Server $node): array
+    {
+        $detail = [];
+        $groupIds = $node->group_ids ?? [];
+        $detail['group_ids'] = $groupIds;
+        if (empty($groupIds)) {
+            return ['ok' => false, 'reason' => '该节点没有分配任何权限组，没人能订阅它。请到节点编辑里绑定权限组。', 'detail' => $detail];
+        }
+
+        $baseUser = User::whereIn('group_id', $groupIds)->where('banned', 0);
+        $usersTotal = (clone $baseUser)->count();
+        $usersActive = (clone $baseUser)->where(function ($q) {
+            $q->whereNull('expired_at')->orWhere('expired_at', '>=', time());
+        })->count();
+        $detail['users_in_groups'] = $usersTotal;
+        $detail['users_active'] = $usersActive;
+        if ($usersActive === 0) {
+            $reason = $usersTotal === 0
+                ? '该节点所属权限组里一个用户都没有，无法用真实凭据测速（请先有一个属于该套餐的用户账号，哪怕是测试号）。'
+                : '该节点所属权限组的用户都已过期/封禁，没有可用凭据测速。';
+            return ['ok' => false, 'reason' => $reason, 'detail' => $detail];
+        }
+
+        $user = (clone $baseUser)->where(function ($q) {
+            $q->whereNull('expired_at')->orWhere('expired_at', '>=', time());
+        })->first();
+        $detail['probe_user_id'] = $user->id;
+        $detail['probe_user_group'] = $user->group_id;
+        $detail['show'] = (bool) $node->show; // 仅信息：隐藏节点也能测，只是不下发
+
+        // 直接生成 outbound（不受 show 影响）—— 真正能不能测，看这一步
+        try {
+            $ob = (new SingBoxProbe($user, [$this->buildTargetArray($node, $user)]))->buildSingleOutbound();
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'reason' => '生成 outbound 抛异常：' . $e->getMessage(), 'detail' => $detail];
+        }
+        if (!$ob) {
+            return [
+                'ok' => false,
+                'reason' => "协议/传输暂不支持或配置不完整，无法生成 sing-box outbound（type={$node->type}）。",
+                'detail' => $detail,
+            ];
+        }
+        return ['ok' => true, 'reason' => null, 'detail' => $detail];
     }
 
     /** 解析 IP 回显响应：返回 [exitIp, countryCode|null]。 */
