@@ -257,7 +257,9 @@ class NodeProbeService
         // 关键：outbounds 里**只有被测节点**，没有 direct。这样代理握手/TLS/DNS 失败时
         // 请求直接失败，绝不会偷偷走直连造成「虚假成功」（真连测速的核心要求）。
         $config = [
-            'log' => ['level' => 'error'],
+            // info 级别才会打印「tcp server started」——这是判断 sing-box 真正就绪的
+            // 可靠信号（见 waitSingboxReady）。日志写文件、用完即删，不走管道不阻塞。
+            'log' => ['level' => 'info'],
             'dns' => ['servers' => [['type' => 'udp', 'tag' => 'r', 'server' => $dnsServer]]],
             'inbounds' => [[
                 'type' => 'mixed',
@@ -291,9 +293,14 @@ class NodeProbeService
         };
 
         try {
-            // 3) 等本地入站端口就绪
-            if (!$this->waitPort($port, 6000)) {
-                return $fail('sing-box 入站端口未就绪：' . ($readLog() ?: '（无日志，可能 sing-box 未能启动）'));
+            // 3) 等 sing-box 真正就绪——轮询日志里的 "started"。
+            // 不能用「TCP 连一下成功」判就绪：实测在某些环境下 sing-box 还没绑端口时
+            // 该连接就会假阳性成功，导致随后请求打到还没起好的端口 → cURL error 7。
+            if (!$this->waitSingboxReady($logPath, $procAlive, 8000)) {
+                $log = $readLog();
+                $dead = !$procAlive();
+                return $fail('sing-box ' . ($dead ? '启动失败/退出' : '启动超时') . '：'
+                    . ($log ?: '（无日志，可能二进制无法运行）'));
             }
 
             $proxy = "socks5h://127.0.0.1:{$port}";
@@ -561,17 +568,24 @@ class NodeProbeService
         return $port ?: null;
     }
 
-    /** 轮询等待本地端口可连接。 */
-    private function waitPort(int $port, int $timeoutMs): bool
+    /**
+     * 等 sing-box 真正就绪：轮询其日志里的 "server started"（inbound 已监听）。
+     * 比「TCP 连一下成功」可靠——后者在 sing-box 还没绑端口时就可能假阳性成功。
+     * 进程中途退出则立即返回 false（由调用方读日志报因）。
+     */
+    private function waitSingboxReady(string $logPath, callable $alive, int $timeoutMs): bool
     {
         $deadline = microtime(true) + $timeoutMs / 1000;
         while (microtime(true) < $deadline) {
-            $c = @stream_socket_client("tcp://127.0.0.1:{$port}", $errno, $errstr, 0.3);
-            if ($c !== false) {
-                fclose($c);
+            $log = (string) @file_get_contents($logPath);
+            // "tcp server started at 127.0.0.1:PORT"（inbound 就绪）或整体 "sing-box started"
+            if (str_contains($log, 'server started') || str_contains($log, 'sing-box started')) {
                 return true;
             }
-            usleep(200_000);
+            if (!$alive()) {
+                return false; // 进程已退出，别再空等
+            }
+            usleep(150_000);
         }
         return false;
     }
