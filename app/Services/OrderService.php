@@ -374,7 +374,7 @@ class OrderService
         if ((int) $order->type === Order::TYPE_UPGRADE) {
             $this->user->expired_at = time();
         }
-        $this->user->transfer_enable = $plan->transfer_enable * 1073741824;
+        $this->user->transfer_enable = Helper::gbToTransfer($plan->transfer_enable);
         // 从一次性转换到循环或者新购的时候，重置流量
         if ($this->user->expired_at === NULL || $order->type === Order::TYPE_NEW_PURCHASE)
             app(TrafficResetService::class)->performReset($this->user, TrafficResetLog::SOURCE_ORDER);
@@ -386,7 +386,7 @@ class OrderService
     private function buyByOneTime(Plan $plan)
     {
         app(TrafficResetService::class)->performReset($this->user, TrafficResetLog::SOURCE_ORDER);
-        $this->user->transfer_enable = $plan->transfer_enable * 1073741824;
+        $this->user->transfer_enable = Helper::gbToTransfer($plan->transfer_enable);
         $this->user->plan_id = $plan->id;
         $this->user->group_id = $plan->group_id;
         $this->user->expired_at = NULL;

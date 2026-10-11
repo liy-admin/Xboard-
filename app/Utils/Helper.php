@@ -306,6 +306,32 @@ class Helper
     }
 
     /**
+     * 把套餐里以 GB 为单位的流量换算成字节，写入 v2_user.transfer_enable。
+     *
+     * v2_user.transfer_enable 是有符号 BIGINT，上限 9223372036854775807 字节
+     * （约 85.9 亿 GB）。若管理员把套餐流量误填成天文数字（例如想表达“无限”
+     * 而填了 100 亿 GB），GB×1073741824 会越界，MySQL 报 1264 Out of range，
+     * 导致开通订单的 open() 抛异常、订单永久卡在“开通中”。这里统一做封顶：
+     * 超过上限就取上限（对用户等同无限流量），既不丢开通、也不再溢出。
+     *
+     * @param int|float|null $gb 套餐流量（GB）
+     * @return int 字节数
+     */
+    public static function gbToTransfer(int|float|null $gb): int
+    {
+        $gb = (int) ($gb ?? 0);
+        if ($gb <= 0) {
+            return 0;
+        }
+        // intdiv(PHP_INT_MAX, 1073741824) = 8589934591，取到这个 GB 值相乘仍不溢出。
+        $maxGb = intdiv(PHP_INT_MAX, 1073741824);
+        if ($gb > $maxGb) {
+            return PHP_INT_MAX;
+        }
+        return $gb * 1073741824;
+    }
+
+    /**
      * 转义 Telegram Markdown 特殊字符
      * @param string $text
      * @return string

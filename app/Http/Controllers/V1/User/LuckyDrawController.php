@@ -80,7 +80,7 @@ class LuckyDrawController extends Controller
                         if ($trialPlan) {
                             $user->plan_id = $trialPlan->id;
                             $user->group_id = $trialPlan->group_id;
-                            $user->transfer_enable = $trialPlan->transfer_enable * 1073741824;
+                            $user->transfer_enable = \App\Utils\Helper::gbToTransfer($trialPlan->transfer_enable);
                             $user->speed_limit = $trialPlan->speed_limit;
                             $user->device_limit = $trialPlan->device_limit;
                         }
