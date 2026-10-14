@@ -820,7 +820,26 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       },
       "subscription": {
         "label": "Subscription URL",
-        "placeholder": "Enter subscription URL"
+        "placeholder": "Enter subscription URL",
+        "saved": "Saved subscriptions",
+        "no_saved": "No saved subscriptions yet. Fill in below and save as a preset.",
+        "save_as_preset": "+ Save current as preset",
+        "preset_name_placeholder": "Preset name, e.g. Balala",
+        "preset_name_empty": "Please enter a preset name",
+        "preset_save": "Save",
+        "from_plugin": "Fetch from Balala plugin",
+        "plugin_loading": "Fetching...",
+        "plugin_empty": "No subscription URL available from the plugin yet.",
+        "plugin_fetched_at": "From plugin cache, fetched at {{time}}",
+        "tag_label": "Source tag",
+        "tag_placeholder": "e.g. Balala (tags this batch of nodes)",
+        "tag_hint": "All nodes imported from this subscription will carry this tag, for easy filtering.",
+        "schedule_enable": "Scheduled auto-import",
+        "schedule_hint": "(periodically re-fetch and replace nodes under this tag)",
+        "schedule_interval": "Interval (hours)",
+        "schedule_refetch": "Re-fetch latest Balala link before import",
+        "schedule_need_tag": "A source tag is recommended for scheduled import: each run deletes old nodes with this tag then imports the latest. Without a tag, it only adds new nodes.",
+        "scheduled_badge": "Scheduled import enabled, every {{hours}}h"
       },
       "defaults": {
         "title": "Default Settings",
@@ -861,7 +880,9 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "delivered": {
         "title": "Delivered",
         "yes": "Delivering",
-        "no": "Not delivered"
+        "no": "Not delivered",
+        "toggleOn": "Click: deliver this node (enable subscription)",
+        "toggleOff": "Click: stop delivering (disable subscription)"
       },
       "rate": {
         "title": "Rate",
@@ -956,7 +977,18 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "all": "Test all",
         "selected": "Test selected",
         "queued": "Speed test queued…",
-        "progress": "Testing {{done}}/{{total}} · reachable {{ok}}"
+        "progress": "Testing {{done}}/{{total}} · reachable {{ok}}",
+        "nextIn": "Next test in",
+        "scheme": "Scheme",
+        "interval": "every {{min}} min",
+        "autoVisibility": "Auto show/hide ",
+        "on": "on",
+        "off": "off",
+        "disabled": "Speed test disabled",
+        "mode": {
+          "singbox": "sing-box live",
+          "tcp": "TCP handshake"
+        }
       },
       "sort": {
         "tip": "Drag nodes to sort, then click save",
@@ -1818,6 +1850,10 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "title": "WebSocket URL",
         "description": "The WebSocket address nodes use to connect to the panel. Leave empty to use the site URL.",
         "placeholder": "Leave empty to use site URL"
+      },
+      "client_ws_enable": {
+        "title": "Client real-time push (WebSocket)",
+        "description": "When enabled, whenever the deliverable node set changes (speed-test visibility, nodes going online/offline), the panel notifies online clients over WebSocket to re-fetch their subscription immediately, so nodes take effect within seconds. Requires Redis and a production (Docker) deployment."
       },
       "latency_section": "Speed test & per-country delivery",
       "server_latency_probe_enable": {

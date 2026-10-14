@@ -116,6 +116,7 @@ class ConfigSave extends FormRequest
         'device_limit_mode' => 'integer',
         'server_ws_enable' => 'boolean',
         'server_ws_url' => 'nullable|url',
+        'client_ws_enable' => 'boolean',
         // 节点测速 + 按国家去重下发
         'server_latency_probe_enable' => 'boolean',
         'server_latency_probe_interval' => 'integer|min:1|max:1440',

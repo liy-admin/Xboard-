@@ -11,7 +11,7 @@ import isEqual from "lodash/isEqual";
 
 const DEFAULTS = {
     server_pull_interval: 0, server_push_interval: 0, server_token: "",
-    device_limit_mode: 0, server_ws_enable: false, server_ws_url: "",
+    device_limit_mode: 0, server_ws_enable: false, server_ws_url: "", client_ws_enable: false,
     server_latency_probe_enable: true, server_latency_probe_interval: 3, server_latency_timeout_ms: 2000,
     server_latency_stale_seconds: 600, server_dedup_by_country: false,
     server_country_naming: true, server_auto_manage_visibility: false,
@@ -158,6 +158,8 @@ export function ServerSettings() {
                     <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" width="1.2em" height="1.2em"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2m0 18a8 8 0 1 1 8-8a8.01 8.01 0 0 1-8 8m0-8.5a1 1 0 0 0-1 1v3a1 1 0 0 0 2 0v-3a1 1 0 0 0-1-1m0-4a1.25 1.25 0 1 0 1.25 1.25A1.25 1.25 0 0 0 12 7.5" /></svg>
                     <span>{t("server.server_ws_enable.supported_clients")}</span>
                 </div>
+
+                <ToggleField label={t("server.client_ws_enable.title")} description={t("server.client_ws_enable.description")} checked={values.client_ws_enable ?? false} onChange={(v) => setField("client_ws_enable", v)} />
 
                 <hr className="my-6" />
                 <div className="text-base font-semibold">{t("server.latency_section")}</div>

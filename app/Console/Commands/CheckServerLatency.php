@@ -209,15 +209,23 @@ class CheckServerLatency extends Command
 
         $shown = 0;
         $hidden = 0;
+        $changed = 0;
         foreach ($servers as $server) {
             $shouldShow = $targets[$server->id] ?? false;
             if ((bool) $server->show !== $shouldShow) {
                 $server->show = $shouldShow;
                 $server->save(); // 变更才 bump updated_at
+                $changed++;
             }
             $shouldShow ? $shown++ : $hidden++;
         }
 
-        $this->info("自动显隐完成：显示 {$shown} 个，隐藏 {$hidden} 个。");
+        // 可下发节点集真正变了，才给在线客户端推「立即重拉订阅」信号（秒级生效）。
+        // 没有变化就不推，避免无谓刷新。开关/节流在 ClientPushService 内部处理。
+        if ($changed > 0) {
+            \App\Services\ClientPushService::broadcastSubscriptionUpdated('visibility');
+        }
+
+        $this->info("自动显隐完成：显示 {$shown} 个，隐藏 {$hidden} 个" . ($changed > 0 ? "（变更 {$changed} 个，已推送客户端）" : '') . "。");
     }
 }

@@ -781,7 +781,26 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       },
       "subscription": {
         "label": "订阅链接",
-        "placeholder": "请输入订阅链接"
+        "placeholder": "请输入订阅链接",
+        "saved": "已保存订阅",
+        "no_saved": "暂无已保存的订阅，可在下方填写后保存为预设",
+        "save_as_preset": "+ 保存当前为预设",
+        "preset_name_placeholder": "预设名称，如 Balala",
+        "preset_name_empty": "请填写预设名称",
+        "preset_save": "保存",
+        "from_plugin": "从 Balala 插件获取",
+        "plugin_loading": "获取中...",
+        "plugin_empty": "插件暂无可用订阅链接，请先执行抓取",
+        "plugin_fetched_at": "来自插件缓存，抓取于 {{time}}",
+        "tag_label": "订阅标识",
+        "tag_placeholder": "如 Balala、机场A（用于标记该批节点来源）",
+        "tag_hint": "填写后，本次订阅导入的所有节点都会带上此标识（节点标签），方便识别与过滤。",
+        "schedule_enable": "定时自动导入",
+        "schedule_hint": "（按间隔自动抓取并替换该标识下的节点）",
+        "schedule_interval": "间隔（小时）",
+        "schedule_refetch": "导入前重抓 Balala 最新链接",
+        "schedule_need_tag": "定时导入建议填写「订阅标识」：每次会删掉带该标识的旧节点再导入最新的。未填标识则只新增、不清理。",
+        "scheduled_badge": "已开启定时导入，每 {{hours}} 小时"
       },
       "defaults": {
         "title": "默认参数",
@@ -822,7 +841,9 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "delivered": {
         "title": "是否下发",
         "yes": "下发中",
-        "no": "不下发"
+        "no": "不下发",
+        "toggleOn": "点击：下发该节点（开启订阅）",
+        "toggleOff": "点击：停止下发（关闭订阅）"
       },
       "rate": {
         "title": "倍率",
@@ -925,7 +946,18 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "all": "测速全部",
         "selected": "测速选中",
         "queued": "测速排队中…",
-        "progress": "测速中 {{done}}/{{total}} · 可用 {{ok}}"
+        "progress": "测速中 {{done}}/{{total}} · 可用 {{ok}}",
+        "nextIn": "下次测速",
+        "scheme": "测速方案",
+        "interval": "每 {{min}} 分钟",
+        "autoVisibility": "自动显隐",
+        "on": "开",
+        "off": "关",
+        "disabled": "测速已关闭",
+        "mode": {
+          "singbox": "sing-box 实跑",
+          "tcp": "TCP 握手"
+        }
       },
       "sort": {
         "tip": "拖拽节点进行排序，完成后点击保存",
@@ -2732,6 +2764,10 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
         "title": "WebSocket 地址",
         "description": "节点连接面板的 WebSocket 地址，留空则自动使用站点网址。",
         "placeholder": "留空则使用站点网址"
+      },
+      "client_ws_enable": {
+        "title": "客户端实时推送（WebSocket）",
+        "description": "开启后，当可下发节点发生变化（测速显隐、节点上下线）时，面板通过 WebSocket 即时通知在线客户端立即重新拉取订阅，节点秒级生效。依赖 Redis，需正式部署（Docker）环境。"
       },
       "latency_section": "测速与按国家下发",
       "server_latency_probe_enable": {

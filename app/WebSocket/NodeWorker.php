@@ -103,6 +103,9 @@ class NodeWorker
                     }
                 }
             }
+
+            // 保活客户端连接（Hiddify 等 App）
+            ClientRegistry::broadcast('ping');
         });
 
         Timer::add(10, function () {
@@ -124,7 +127,7 @@ class NodeWorker
     public function onConnect(TcpConnection $conn): void
     {
         $conn->authTimer = Timer::add(self::AUTH_TIMEOUT, function () use ($conn) {
-            if (empty($conn->nodeId) && empty($conn->machineNodeIds)) {
+            if (empty($conn->nodeId) && empty($conn->machineNodeIds) && empty($conn->clientUserId)) {
                 $conn->close(json_encode([
                     'event' => 'error',
                     'data' => ['message' => 'auth timeout'],
@@ -149,11 +152,51 @@ class NodeWorker
         }
 
         // 判断认证模式
-        if (!empty($params['machine_id'])) {
+        if (!empty($params['client_token'])) {
+            $this->authenticateClient($conn, $params);
+        } elseif (!empty($params['machine_id'])) {
             $this->authenticateMachine($conn, $params);
         } else {
             $this->authenticateNode($conn, $params);
         }
+    }
+
+    /**
+     * 客户端（Hiddify 等 App）认证：用订阅 token（= users.token）识别用户，
+     * 注册进 ClientRegistry。连接只用于接收「订阅已更新」信号，不处理节点业务。
+     */
+    private function authenticateClient(TcpConnection $conn, array $params): void
+    {
+        $token = (string) ($params['client_token'] ?? '');
+        if ($token === '') {
+            $conn->close(json_encode([
+                'event' => 'error',
+                'data' => ['message' => 'invalid client token'],
+            ]));
+            return;
+        }
+
+        $user = \App\Models\User::where('token', $token)->first(['id']);
+        if (!$user) {
+            $conn->close(json_encode([
+                'event' => 'error',
+                'data' => ['message' => 'client not found'],
+            ]));
+            return;
+        }
+
+        $conn->clientUserId = (int) $user->id;
+        ClientRegistry::add((int) $user->id, $conn);
+
+        Log::debug("[WS] Client user#{$user->id} connected", [
+            'remote' => $conn->getRemoteIp(),
+            'clients' => ClientRegistry::count(),
+        ]);
+
+        $conn->send(json_encode([
+            'event' => 'auth.success',
+            'data' => ['user_id' => (int) $user->id],
+        ]));
     }
 
     /**
@@ -199,6 +242,9 @@ class NodeWorker
         ]));
 
         NodeEventHandlers::pushFullSync($conn, $node);
+
+        // 节点上线→可用集可能变化，通知客户端重拉（开关/节流在 Service 内处理）
+        \App\Services\ClientPushService::broadcastSubscriptionUpdated('node.online');
     }
 
     /**
@@ -258,6 +304,9 @@ class NodeWorker
         foreach ($nodes as $node) {
             NodeEventHandlers::pushFullSync($conn, $node);
         }
+
+        // 节点（机器）上线→可用集可能变化，通知客户端重拉
+        \App\Services\ClientPushService::broadcastSubscriptionUpdated('node.online');
     }
 
     public function onMessage(TcpConnection $conn, $data): void
@@ -268,6 +317,11 @@ class NodeWorker
         }
 
         $event = $msg['event'] ?? '';
+
+        // 客户端连接：只做保活（pong），不处理节点业务
+        if (!empty($conn->clientUserId)) {
+            return;
+        }
 
         // 机器连接：从消息中读取 node_id 来分派到具体节点
         if (!empty($conn->machineNodeIds)) {
@@ -299,6 +353,15 @@ class NodeWorker
 
     public function onClose(TcpConnection $conn): void
     {
+        // 客户端连接：仅从客户端注册表移除
+        if (!empty($conn->clientUserId)) {
+            ClientRegistry::remove((int) $conn->clientUserId, $conn);
+            Log::debug("[WS] Client user#{$conn->clientUserId} disconnected", [
+                'clients' => ClientRegistry::count(),
+            ]);
+            return;
+        }
+
         $service = app(DeviceStateService::class);
 
         // 机器模式：清理所有关联节点
@@ -323,6 +386,9 @@ class NodeWorker
                 'total' => NodeRegistry::count(),
                 'machines' => NodeRegistry::machineCount(),
             ]);
+
+            // 节点（机器）下线→可用集可能变化，通知客户端重拉
+            \App\Services\ClientPushService::broadcastSubscriptionUpdated('node.offline');
             return;
         }
 
@@ -341,6 +407,9 @@ class NodeWorker
                 'total' => NodeRegistry::count(),
                 'affected_users' => count($affectedUserIds),
             ]);
+
+            // 节点下线→可用集可能变化，通知客户端重拉
+            \App\Services\ClientPushService::broadcastSubscriptionUpdated('node.offline');
         }
     }
 
@@ -364,10 +433,30 @@ class NodeWorker
 
         $prefix = config('database.redis.options.prefix', '');
         $channel = $prefix . 'node:push';
+        $clientChannel = $prefix . \App\Services\ClientPushService::CHANNEL;
 
-        $redis->subscribe([$channel], function ($chan, $message) {
+        $redis->subscribe([$channel, $clientChannel], function ($chan, $message) use ($clientChannel) {
             $payload = json_decode($message, true);
             if (!is_array($payload)) {
+                return;
+            }
+
+            // 客户端推送频道：分派给 ClientRegistry（定向用户或全体广播）
+            if ($chan === $clientChannel) {
+                $event = $payload['event'] ?? '';
+                if ($event === '') {
+                    return;
+                }
+                $data = $payload['data'] ?? [];
+                $scope = $payload['scope'] ?? 'all';
+                if ($scope === 'user' && !empty($payload['user_id'])) {
+                    $sent = ClientRegistry::sendToUser((int) $payload['user_id'], $event, $data);
+                } else {
+                    $sent = ClientRegistry::broadcast($event, $data);
+                }
+                if ($sent) {
+                    Log::debug("[WS] Pushed {$event} to {$sent} client(s)");
+                }
                 return;
             }
 
@@ -402,6 +491,6 @@ class NodeWorker
             }
         });
 
-        Log::info("[WS] Subscribed to Redis channel: {$channel}");
+        Log::info("[WS] Subscribed to Redis channels: {$channel}, {$clientChannel}");
     }
 }

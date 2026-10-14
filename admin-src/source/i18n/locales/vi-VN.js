@@ -862,7 +862,9 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
       "delivered": {
         "title": "Phân phối",
         "yes": "Đang phân phối",
-        "no": "Không phân phối"
+        "no": "Không phân phối",
+        "toggleOn": "Nhấp: phân phối node này (bật đăng ký)",
+        "toggleOff": "Nhấp: ngừng phân phối (tắt đăng ký)"
       },
       "rate": {
         "title": "Hệ số",
@@ -958,7 +960,18 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "all": "Đo tất cả",
         "selected": "Đo mục đã chọn",
         "queued": "Đang chờ đo…",
-        "progress": "Đang đo {{done}}/{{total}} · khả dụng {{ok}}"
+        "progress": "Đang đo {{done}}/{{total}} · khả dụng {{ok}}",
+        "nextIn": "Đo lần sau sau",
+        "scheme": "Phương án đo",
+        "interval": "mỗi {{min}} phút",
+        "autoVisibility": "Tự ẩn/hiện ",
+        "on": "bật",
+        "off": "tắt",
+        "disabled": "Đã tắt đo tốc độ",
+        "mode": {
+          "singbox": "sing-box thực",
+          "tcp": "Bắt tay TCP"
+        }
       },
       "sort": {
         "tip": "Kéo thả node để sắp xếp, sau đó nhấn lưu",
@@ -1806,6 +1819,10 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "title": "URL WebSocket",
         "description": "Địa chỉ WebSocket để node kết nối. Để trống để dùng URL trang web.",
         "placeholder": "Để trống để dùng URL trang web"
+      },
+      "client_ws_enable": {
+        "title": "Đẩy thời gian thực tới client (WebSocket)",
+        "description": "Khi bật, mỗi khi tập node khả dụng thay đổi (ẩn/hiện theo đo tốc độ, node online/offline), bảng điều khiển thông báo cho client đang online qua WebSocket để tải lại subscription ngay lập tức, node có hiệu lực trong vài giây. Cần Redis và môi trường triển khai chính thức (Docker)."
       },
       "latency_section": "Đo tốc độ & phân phối theo quốc gia",
       "server_latency_probe_enable": {

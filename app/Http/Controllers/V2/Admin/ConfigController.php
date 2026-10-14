@@ -234,6 +234,7 @@ class ConfigController extends Controller
                 'device_limit_mode' => (int) admin_setting('device_limit_mode', 0),
                 'server_ws_enable' => (bool) admin_setting('server_ws_enable', 1),
                 'server_ws_url' => admin_setting('server_ws_url', ''),
+                'client_ws_enable' => (bool) admin_setting('client_ws_enable', 0),
                 'server_latency_probe_enable' => (bool) admin_setting('server_latency_probe_enable', 1),
                 'server_latency_probe_interval' => (int) admin_setting('server_latency_probe_interval', 3),
                 'server_latency_timeout_ms' => (int) admin_setting('server_latency_timeout_ms', 2000),
