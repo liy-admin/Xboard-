@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ManageController extends Controller
 {
@@ -46,7 +47,7 @@ class ManageController extends Controller
     private function computeDeliveredIds($servers): array
     {
         $now = time();
-        $stale = (int) admin_setting('server_latency_stale_seconds', 600);
+        $stale = ServerService::effectiveStaleSeconds();
         $candidates = $servers->filter(function ($s) use ($now, $stale) {
             if ($s->parent_id || !$s->show) {
                 return false;
@@ -184,16 +185,45 @@ class ManageController extends Controller
     /** 测速进度（供管理端进度条轮询）。 */
     public function probeStatus(Request $request)
     {
-        $status = Cache::get(CheckServerLatency::STATUS_CACHE_KEY);
-        if (!$status) {
-            return $this->success(['running' => false]);
-        }
+        $status = Cache::get(CheckServerLatency::STATUS_CACHE_KEY) ?: ['running' => false];
         // 兜底：进程被杀导致状态卡在 running，超过 120s 没更新就当已结束
         if (!empty($status['running']) && (time() - ($status['updated_at'] ?? 0)) > 120) {
             $status['running'] = false;
             $status['stale'] = true;
         }
+        // 附带测速方案 + 下次计划时间，供空闲时展示倒计时
+        $status['scheme'] = $this->probeScheme();
         return $this->success($status);
+    }
+
+    /**
+     * 当前测速方案：是否启用、间隔、模式、自动显隐，以及按定时任务算出的下次计划时间。
+     * 下次时间用和 Kernel 一致的 cron 规则推算（间隔 <60 分钟走 每 N 分钟，否则整点/整天对齐）。
+     */
+    private function probeScheme(): array
+    {
+        $enabled = (bool) admin_setting('server_latency_probe_enable', true);
+        $interval = max(1, min((int) admin_setting('server_latency_probe_interval', 3), 1440));
+        $cron = $interval >= 60
+            ? ($interval % 60 === 0 ? '0 */' . intdiv($interval, 60) . ' * * *' : '0 * * * *')
+            : '*/' . $interval . ' * * * *';
+
+        $nextRunAt = null;
+        if ($enabled) {
+            try {
+                $nextRunAt = (new \Cron\CronExpression($cron))->getNextRunDate()->getTimestamp();
+            } catch (\Throwable $e) {
+                $nextRunAt = time() + $interval * 60;
+            }
+        }
+
+        return [
+            'enabled' => $enabled,
+            'interval_minutes' => $interval,
+            'mode' => admin_setting('node_probe_mode', 'singbox'),
+            'auto_visibility' => (bool) admin_setting('server_auto_manage_visibility', false),
+            'next_run_at' => $nextRunAt,
+        ];
     }
 
     private function estimateProbeTotal(array $ids): int
@@ -291,6 +321,138 @@ class ManageController extends Controller
         return $this->success([
             'servers'      => $servers,
             'parse_errors' => $parsed['errors'],
+        ]);
+    }
+
+    /**
+     * 订阅导入预设：存放于 settings(node_import_subscriptions)。
+     * 每条结构：{ id, name, url, tag, group_ids[], rate, show }
+     */
+    public function getImportSubscriptions(Request $request)
+    {
+        $list = admin_setting('node_import_subscriptions', []);
+        return $this->success(is_array($list) ? array_values($list) : []);
+    }
+
+    /**
+     * 保存订阅导入预设（整表覆盖）。
+     */
+    public function saveImportSubscriptions(Request $request)
+    {
+        $params = $request->validate([
+            'subscriptions'                   => 'present|array|max:50',
+            'subscriptions.*.id'              => 'nullable|string|max:64',
+            'subscriptions.*.name'            => 'required|string|max:100',
+            'subscriptions.*.url'             => 'required|url|max:2048',
+            'subscriptions.*.tag'             => 'nullable|string|max:100',
+            'subscriptions.*.group_ids'       => 'nullable|array',
+            'subscriptions.*.group_ids.*'     => 'integer',
+            'subscriptions.*.rate'            => 'nullable|numeric|min:0',
+            'subscriptions.*.show'            => 'nullable|integer|in:0,1',
+            'subscriptions.*.schedule_enabled'=> 'nullable|boolean',
+            'subscriptions.*.interval_hours'  => 'nullable|integer|min:1|max:8760',
+            'subscriptions.*.refetch_balala'  => 'nullable|boolean',
+            'subscriptions.*.last_run_at'     => 'nullable|string|max:64',
+        ]);
+
+        $list = array_map(function ($s) {
+            return [
+                'id'               => $s['id'] ?? (string) Str::uuid(),
+                'name'             => $s['name'],
+                'url'              => $s['url'],
+                'tag'              => $s['tag'] ?? '',
+                'group_ids'        => array_values(array_map('intval', $s['group_ids'] ?? [])),
+                'rate'             => isset($s['rate']) ? (float) $s['rate'] : 1,
+                'show'             => (int) ($s['show'] ?? 0),
+                'schedule_enabled' => (bool) ($s['schedule_enabled'] ?? false),
+                'interval_hours'   => (int) ($s['interval_hours'] ?? 24),
+                'refetch_balala'   => (bool) ($s['refetch_balala'] ?? false),
+                'last_run_at'      => $s['last_run_at'] ?? null,
+            ];
+        }, $params['subscriptions']);
+
+        admin_setting(['node_import_subscriptions' => $list]);
+
+        return $this->success($list);
+    }
+
+    /**
+     * 读取 Balala 订阅抓取插件最近一次抓到的订阅链接（来自缓存）。
+     * 用于导入弹窗「从 Balala 插件获取」按钮。
+     */
+    public function pluginSubscription(Request $request)
+    {
+        // 与 Plugin\BalalaSub\Plugin::CACHE_KEY 保持一致
+        $data = Cache::get('plugin:balala_sub:latest');
+        if (!$data || empty($data['subscribe_url'])) {
+            return $this->fail([404, '暂无可用订阅链接，请先在 Balala 插件中执行抓取（php artisan balala-sub:fetch）']);
+        }
+        return $this->success([
+            'subscribe_url' => $data['subscribe_url'],
+            'subscriptions' => $data['subscriptions'] ?? [],
+            'fetched_at'    => $data['fetched_at'] ?? null,
+        ]);
+    }
+
+    /**
+     * Balala 插件环境自检（走后台统一通道，避免插件自有路由的鉴权/路径问题）。
+     * GET server/manage/pluginDoctor?full=1
+     */
+    public function pluginDoctor(Request $request)
+    {
+        $cls = 'Plugin\\BalalaSub\\Support\\EnvDoctor';
+        if (!class_exists($cls)) {
+            return $this->fail([400, 'Balala 插件未安装或未启用']);
+        }
+        $full = (bool) $request->input('full', false);
+        return $this->success($cls::run($full));
+    }
+
+    /**
+     * Balala 安装环境：在后台(Octane)所用的 python 里 pip 安装 ruyiPage。
+     * 与自检/抓取用同一个 python，避免 CLI 与 web 进程 python 不一致。
+     * GET server/manage/pluginSetup
+     */
+    public function pluginSetup(Request $request)
+    {
+        try {
+            $code = \Illuminate\Support\Facades\Artisan::call('balala-sub:setup');
+            $output = trim(\Illuminate\Support\Facades\Artisan::output());
+        } catch (\Throwable $e) {
+            return $this->fail([500, '安装异常：' . $e->getMessage()]);
+        }
+        $status = Cache::get('plugin:balala_sub:setup_status');
+        $python = is_array($status) ? ($status['python'] ?? '') : '';
+        if ($code !== 0 || (is_array($status) && empty($status['ok']))) {
+            $detail = is_array($status) ? json_encode($status['report'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : mb_substr($output, -300);
+            return $this->fail([500, "安装失败(python={$python})：{$detail}"]);
+        }
+        return $this->success([
+            'message' => "环境已安装完成（python={$python}）。现在可点「开始自检」验证。",
+        ]);
+    }
+
+    /**
+     * Balala 立即导入：抓取最新订阅并按标识替换节点（走后台统一通道）。
+     * GET server/manage/pluginImport
+     */
+    public function pluginImport(Request $request)
+    {
+        // 同步执行并返回真实结果，方便排查（fetch 结果通过文件 IPC 可靠回传，不受 Octane 抓不到 stdout 影响）。
+        // 注意：需启动浏览器，约 1-2 分钟；请把插件配置「超时时间」设 >=120，前端已给 180s 等待。
+        @set_time_limit(300);
+        try {
+            $code = \Illuminate\Support\Facades\Artisan::call('balala-sub:import', ['--force' => true]);
+        } catch (\Throwable $e) {
+            return $this->fail([500, '导入异常：' . $e->getMessage()]);
+        }
+        $status = Cache::get('plugin:balala_sub:import_status');
+        if ($code !== 0 || (is_array($status) && empty($status['ok']))) {
+            $msg = is_array($status) ? ($status['message'] ?? '导入失败') : '导入失败（无状态，详见 storage/logs）';
+            return $this->fail([500, $msg]);
+        }
+        return $this->success([
+            'message' => is_array($status) ? ($status['message'] ?? '导入完成') : '导入完成',
         ]);
     }
 

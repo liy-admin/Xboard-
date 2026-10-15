@@ -436,7 +436,7 @@ class Server extends Model
                 if ($this->latency_ms === null || !$this->last_latency_at) {
                     return false;
                 }
-                $stale = (int) admin_setting('server_latency_stale_seconds', 600);
+                $stale = \App\Services\ServerService::effectiveStaleSeconds();
                 return (time() - $this->last_latency_at) <= $stale;
             }
         );

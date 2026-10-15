@@ -97,10 +97,31 @@ class ServerService
             return true;
         }
         $now ??= time();
-        $stale ??= (int) admin_setting('server_latency_stale_seconds', 600);
+        $stale ??= self::effectiveStaleSeconds();
         return ($s['latency_ms'] ?? null) !== null
             && !empty($s['last_latency_at'])
             && ($now - (int) $s['last_latency_at']) <= $stale;
+    }
+
+    /**
+     * 实际使用的「测速结果新鲜度窗口」（秒）。
+     *
+     * 为什么不直接用 server_latency_stale_seconds：开启自动测速时，这个窗口必须
+     * 至少覆盖一个测速周期，否则两次测速之间节点必然集体过期 → 全部被判不可用 →
+     * 客户端全不下发（现象：UI 显示「测速于 18m」却整列不下发，因为间隔 30m 而
+     * stale 只有 10m）。所以这里取 `max(配置值, 测速间隔×1.5)`：1.5 倍留出单轮
+     * 测速耗时、网络抖动、偶发失败一轮的余量，保证节点在下一轮测速补上之前都算新鲜。
+     *
+     * 关闭自动测速时维持配置原值（此时新鲜度完全由管理员/外部来源掌控）。
+     */
+    public static function effectiveStaleSeconds(): int
+    {
+        $stale = (int) admin_setting('server_latency_stale_seconds', 600);
+        if ((bool) admin_setting('server_latency_probe_enable', 1)) {
+            $intervalSec = max(1, (int) admin_setting('server_latency_probe_interval', 3)) * 60;
+            $stale = max($stale, (int) ($intervalSec * 1.5));
+        }
+        return $stale;
     }
 
     /**
@@ -124,7 +145,7 @@ class ServerService
     public static function pickBestPerCountry(array $servers): array
     {
         $now = time();
-        $stale = (int) admin_setting('server_latency_stale_seconds', 600);
+        $stale = self::effectiveStaleSeconds();
         $naming = (bool) admin_setting('server_country_naming', true);
 
         $noCountry = [];
