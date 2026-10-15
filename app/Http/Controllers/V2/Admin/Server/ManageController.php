@@ -132,7 +132,7 @@ class ManageController extends Controller
                 if (!function_exists('popen')) {
                     return false;
                 }
-                $full = sprintf('%s %s check:server-latency%s', escapeshellarg($php), escapeshellarg($artisan), $idArgs);
+                $full = sprintf('%s %s check:server-latency --manual%s', escapeshellarg($php), escapeshellarg($artisan), $idArgs);
                 $handle = @popen('start /B "" ' . $full . ' > NUL 2>&1', 'r');
                 if ($handle === false) {
                     return false;
@@ -148,7 +148,7 @@ class ManageController extends Controller
             if (in_array('exec', $disabled, true)) {
                 return false;
             }
-            $cmd = sprintf('%s %s check:server-latency%s > /dev/null 2>&1 &', escapeshellarg($php), escapeshellarg($artisan), $idArgs);
+            $cmd = sprintf('%s %s check:server-latency --manual%s > /dev/null 2>&1 &', escapeshellarg($php), escapeshellarg($artisan), $idArgs);
             @exec($cmd);
             return true;
         } catch (\Throwable $e) {

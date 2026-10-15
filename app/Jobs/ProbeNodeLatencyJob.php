@@ -29,7 +29,8 @@ class ProbeNodeLatencyJob implements ShouldQueue
 
     public function handle(): void
     {
-        $params = [];
+        // 队列兜底同样是「手动触发」路径，忽略自动测速开关
+        $params = ['--manual' => true];
         if (!empty($this->ids)) {
             $params['--id'] = $this->ids;
         }

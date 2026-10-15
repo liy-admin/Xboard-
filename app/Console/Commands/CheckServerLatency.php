@@ -22,7 +22,9 @@ use Illuminate\Support\Facades\Cache;
  */
 class CheckServerLatency extends Command
 {
-    protected $signature = 'check:server-latency {--id=* : 只探测指定节点ID（调试用）}';
+    protected $signature = 'check:server-latency
+        {--id=* : 只探测指定节点ID（调试用）}
+        {--manual : 手动触发（后台点击测速），忽略 server_latency_probe_enable 自动开关}';
 
     protected $description = '节点测速（sing-box 实跑 / TCP 握手）、国家解析与自动显隐';
 
@@ -31,8 +33,13 @@ class CheckServerLatency extends Command
 
     public function handle(NodeProbeService $prober): int
     {
-        if (!(bool) admin_setting('server_latency_probe_enable', true)) {
+        // 自动测速开关只约束「定时自动测速」；后台手动点击（--manual）即使开关
+        // 关闭也要照跑，否则关掉自动后就再也没法手动测了。
+        // 另外：提前退出前必须把「排队中」状态收尾成「已完成」，否则控制器先写的
+        // 排队状态没人覆盖，前端会一直显示「测速排队中…」。
+        if (!$this->option('manual') && !(bool) admin_setting('server_latency_probe_enable', true)) {
             $this->info('server_latency_probe_enable 关闭，跳过测速。');
+            $this->finishStatus();
             return self::SUCCESS;
         }
 
@@ -50,6 +57,7 @@ class CheckServerLatency extends Command
 
         if ($servers->isEmpty()) {
             $this->info('没有需要测速的节点。');
+            $this->finishStatus();
             return self::SUCCESS;
         }
 
@@ -141,6 +149,12 @@ class CheckServerLatency extends Command
             if ($autoVisibility && !$this->option('id')) {
                 $this->applyVisibility($servers, $probe);
             }
+
+            // 全量探测且 0 个可用节点时，触发钩子（插件可监听以自动重新导入订阅，形成闭环）。
+            if (!$this->option('id') && $total > 0 && $okCount === 0) {
+                $this->warn('检测到 0 个可用节点，触发 server.latency.no_available 钩子');
+                \App\Services\Plugin\HookManager::call('server.latency.no_available', ['total' => $total]);
+            }
         } finally {
             $this->writeStatus([
                 'running' => false,
@@ -156,6 +170,20 @@ class CheckServerLatency extends Command
      * 写进度到缓存。$merge=true 时合并进已有状态（否则整体覆盖）。
      * 额外写 updated_at，供端点判断进度是否「卡死」（进程被杀时兜底）。
      */
+    /**
+     * 把进度状态收尾成「已完成/未在跑」。用于各种提前退出的路径，
+     * 避免控制器先写的「排队中」状态无人覆盖，导致前端一直卡在「测速排队中…」。
+     */
+    private function finishStatus(): void
+    {
+        $this->writeStatus([
+            'running' => false,
+            'queued' => false,
+            'current' => '',
+            'finished_at' => time(),
+        ], true);
+    }
+
     private function writeStatus(array $data, bool $merge = false): void
     {
         if ($merge) {
