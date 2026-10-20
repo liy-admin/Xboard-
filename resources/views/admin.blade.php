@@ -77,6 +77,8 @@
     <script src="/assets/admin/locales/zh-CN.js"></script>
     <script src="/assets/admin/locales/ko-KR.js"></script>
   @endif
+  {{-- 服务器详情页「一键创建节点」，见 public/assets/admin-ext/machine-quick-node.js --}}
+  <script src="/assets/admin-ext/machine-quick-node.js?v={{ $version }}" defer></script>
 </head>
 
 <body>

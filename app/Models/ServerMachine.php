@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
  * @property string|null $notes 备注
  * @property bool $is_active 是否启用
  * @property int|null $last_seen_at 最后心跳时间
+ * @property string|null $last_ip 最近一次请求的来源 IP
  * @property array|null $load_status 负载状态
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
@@ -61,5 +62,17 @@ class ServerMachine extends Model
     public function updateHeartbeat(): bool
     {
         return $this->forceFill(['last_seen_at' => now()->timestamp])->save();
+    }
+
+    /**
+     * 记录节点端的请求：更新心跳时间和来源 IP（不触发模型事件）
+     */
+    public function recordContact(?string $ip): void
+    {
+        $attributes = ['last_seen_at' => now()->timestamp];
+        if ($ip !== null && filter_var($ip, FILTER_VALIDATE_IP)) {
+            $attributes['last_ip'] = $ip;
+        }
+        $this->forceFill($attributes)->saveQuietly();
     }
 }

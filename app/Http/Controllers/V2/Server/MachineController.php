@@ -132,7 +132,7 @@ class MachineController extends Controller
             abort(403, 'Machine not found or disabled');
         }
 
-        $machine->forceFill(['last_seen_at' => now()->timestamp])->saveQuietly();
+        $machine->recordContact($request->ip());
 
         return $machine;
     }
