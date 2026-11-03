@@ -30,14 +30,20 @@ class PluginConfigService
 
         $result = [];
         foreach ($defaultConfig as $key => $item) {
-            $result[$key] = [
-                'type' => $item['type'],
-                'label' => $item['label'] ?? '',
-                'placeholder' => $item['placeholder'] ?? '',
-                'description' => $item['description'] ?? '',
-                'value' => $dbConfig[$key] ?? $item['default'],
-                'options' => $item['options'] ?? []
-            ];
+            // 透传字段定义里的所有属性（含 action_url / upload_url / accept 等自定义项），
+            // 再补默认并覆盖 value，避免自定义字段类型（file/action）丢失关键属性。
+            $result[$key] = array_merge(
+                [
+                    'label' => '',
+                    'placeholder' => '',
+                    'description' => '',
+                    'options' => [],
+                ],
+                is_array($item) ? $item : ['default' => $item],
+                [
+                    'value' => $dbConfig[$key] ?? ($item['default'] ?? null),
+                ]
+            );
         }
 
         return $result;

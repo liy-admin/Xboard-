@@ -129,6 +129,15 @@ function devSettings() {
 export default defineConfig({
   plugins: [react(), monacoWorkerAssets(), manifestRelocate(), devSettings()],
   base: './',
+  server: {
+    // dev 下页面在 5173，接口走相对路径，由这里转给本地 Go 面板（它不处理跨域请求）
+    proxy: {
+      // 只转接口前缀；不能写 '/api'，源码目录 api/（api/config.js 等）在 dev 下的地址也以它开头
+      '/api/v1': { target: process.env.XBOARD_DEV_API || 'http://127.0.0.1:7001', changeOrigin: true },
+      '/api/v2': { target: process.env.XBOARD_DEV_API || 'http://127.0.0.1:7001', changeOrigin: true },
+      '/ws': { target: (process.env.XBOARD_DEV_API || 'http://127.0.0.1:7001').replace(/^http/, 'ws'), ws: true },
+    },
+  },
   esbuild: {
     loader: 'jsx',
     include: /source\/.*\.jsx?$/,

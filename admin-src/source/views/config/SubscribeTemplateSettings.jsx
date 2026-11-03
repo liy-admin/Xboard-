@@ -76,7 +76,7 @@ export function SubscribeTemplateSettings() {
     if (!ready) {
         return (
             <div className="flex items-center justify-center py-16">
-                <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+                <div className="text-sm text-muted-foreground">{t("common.loading", null, "加载中...")}</div>
             </div>
         );
     }

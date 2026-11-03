@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "../../i18n/index.js";
 import { useAuthState } from "../../store/auth.js";
-import { fetchMachines, saveMachine, dropMachine, getMachineNodes } from "../../api/server.js";
+import { fetchMachines, saveMachine, dropMachine } from "../../api/server.js";
 import { Button } from "../../components/Button.jsx";
 import { Input } from "../../components/Input.jsx";
 import { Textarea } from "../../components/Textarea.jsx";
@@ -13,6 +13,7 @@ import { FormDialog } from "../../components/FormDialog.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
 import { Dialog } from "../../components/Dialog.jsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/Select.jsx";
+import { MachineNodes } from "./MachineNodes.jsx";
 
 const EMPTY_FORM = { id: null, name: "", notes: "", is_active: true };
 
@@ -108,8 +109,6 @@ export function MachineManagement() {
     const [deleteTarget, setDeleteTarget] = useState(null);
 
     const [detailTarget, setDetailTarget] = useState(null);
-    const [detailNodes, setDetailNodes] = useState([]);
-    const [detailLoading, setDetailLoading] = useState(false);
 
     const load = () => {
         setLoading(true);
@@ -182,14 +181,13 @@ export function MachineManagement() {
         await load();
     };
 
-    const openDetail = (item) => {
-        setDetailTarget(item);
-        setDetailNodes([]);
-        setDetailLoading(true);
-        getMachineNodes({ id: item.id })
-            .then((res) => setDetailNodes(res?.data || []))
-            .finally(() => setDetailLoading(false));
-    };
+    // 详情里的节点增删改后刷新列表，并同步详情头部的节点数
+    const handleDetailNodesChanged = () =>
+        fetchMachines().then((res) => {
+            const list = res?.data || [];
+            setItems(list);
+            setDetailTarget((prev) => (prev ? list.find((m) => m.id === prev.id) || prev : prev));
+        });
 
     const copyText = async (text) => {
         try {
@@ -312,7 +310,7 @@ export function MachineManagement() {
                                         <TableCell>
                                             <div className="space-y-1">
                                                 <div className="font-mono text-sm font-semibold">{item.servers_count ?? 0}</div>
-                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => openDetail(item)}>
+                                                <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setDetailTarget(item)}>
                                                     {t("detail.title")}
                                                 </Button>
                                             </div>
@@ -393,7 +391,7 @@ export function MachineManagement() {
                 </div>
             </Dialog>
 
-            <Dialog open={Boolean(detailTarget)} onOpenChange={(open) => !open && setDetailTarget(null)} className="sm:max-w-2xl">
+            <Dialog open={Boolean(detailTarget)} onOpenChange={(open) => !open && setDetailTarget(null)} className="sm:max-w-4xl">
                 {detailTarget && (
                     <div className="max-h-[90vh] overflow-y-auto p-6">
                         <div className="flex items-center gap-2">
@@ -401,45 +399,21 @@ export function MachineManagement() {
                             <Badge variant="outline" className="font-mono">SID:{detailTarget.id}</Badge>
                             <Badge variant={STATUS_BADGE[machineStatus(detailTarget)]}>{t(`columns.${machineStatus(detailTarget)}`)}</Badge>
                         </div>
-                        <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                             <span>{t("columns.lastSeen")}: {relativeTime(detailTarget.last_seen_at)}</span>
                             <span>•</span>
                             <span>{t("columns.nodes")}: {detailTarget.servers_count ?? 0}</span>
+                            {detailTarget.last_ip && (
+                                <>
+                                    <span>•</span>
+                                    <span>{t("quickNode.lastIp")}: <span className="font-mono">{detailTarget.last_ip}</span></span>
+                                </>
+                            )}
                         </div>
                         {detailTarget.notes && <p className="mt-2 text-sm text-muted-foreground">{detailTarget.notes}</p>}
 
                         <hr className="my-4" />
-                        <h4 className="text-sm font-medium">{t("detail.associatedNodes")}</h4>
-                        {detailLoading ? (
-                            <p className="mt-2 text-sm text-muted-foreground">...</p>
-                        ) : detailNodes.length === 0 ? (
-                            <p className="mt-2 text-sm text-muted-foreground">{t("detail.noNodes")}</p>
-                        ) : (
-                            <div className="mt-2 overflow-auto rounded-md border">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-                                        <tr>
-                                            <th className="p-2">{t("detail.nodeId")}</th>
-                                            <th className="p-2">{t("detail.nodeName")}</th>
-                                            <th className="p-2">{t("detail.nodeType")}</th>
-                                            <th className="p-2">{t("detail.nodeHost")}</th>
-                                            <th className="p-2">{t("detail.nodePort")}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {detailNodes.map((node) => (
-                                            <tr key={node.id} className="border-t">
-                                                <td className="p-2 font-mono">{node.id}</td>
-                                                <td className="p-2">{node.name}</td>
-                                                <td className="p-2">{node.type}</td>
-                                                <td className="p-2 font-mono">{node.host}</td>
-                                                <td className="p-2 font-mono">{node.port}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                        <MachineNodes machine={detailTarget} machines={items} onChanged={handleDetailNodesChanged} />
                         <div className="mt-6 flex justify-end">
                             <Button variant="outline" onClick={() => setDetailTarget(null)}>{t("detail.cancel")}</Button>
                         </div>

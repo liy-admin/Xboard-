@@ -36,3 +36,15 @@ compose.split.yaml
 **/caddy
 frankenphp
 frankenphp-worker.php
+
+# --- Go 版：本地运行产物与凭据（不要入库）---
+/Xboard.zip
+/vendor.zip
+/vendor.7z
+/storage/app/
+/go/storage/
+/go/dist/
+/go/xboard.exe
+/go/.env
+/go/scripts/r2.env
+/go/scripts/.r2.env

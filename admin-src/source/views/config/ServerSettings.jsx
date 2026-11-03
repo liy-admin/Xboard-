@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "../../i18n/index.js";
-import { getSettings, saveSettings, diagnoseProbe } from "../../api/config.js";
+import { getSettings, saveSettings, diagnoseProbe, startSingboxDownload, getSingboxDownloadStatus, getCountriesStatus, refreshCountries } from "../../api/config.js";
 import { useAuthState } from "../../store/auth.js";
 import { Input } from "../../components/Input.jsx";
 import { Button } from "../../components/Button.jsx";
@@ -16,6 +16,7 @@ const DEFAULTS = {
     server_latency_stale_seconds: 600, server_dedup_by_country: false,
     server_country_naming: true, server_auto_manage_visibility: false,
     geoip_method: "api", geoip_maxmind_db_path: "",
+    country_refresh_time: "04:00", country_tags: "",
     node_probe_mode: "singbox", node_probe_singbox_path: "",
     node_probe_singbox_auto_download: true, node_probe_singbox_version: "1.14.2",
     node_probe_ip_echo_url: "http://ip-api.com/json/?fields=status,countryCode,query",
@@ -42,6 +43,37 @@ export function ServerSettings() {
     const lastSavedRef = useRef(null);
     const [diagLoading, setDiagLoading] = useState(false);
     const [diagResult, setDiagResult] = useState(null);
+
+    const [dl, setDl] = useState({ state: "idle" });
+    const downloading = dl.state === "downloading";
+
+    const runDownload = async () => {
+        try {
+            const res = await startSingboxDownload((values.node_probe_singbox_version || "").trim());
+            setDl(res?.data ?? { state: "downloading" });
+        } catch (e) {
+            setDl({ state: "error", message: e?.response?.data?.message || e?.message || "请求失败" });
+        }
+    };
+
+    // 页面打开时同步一次状态（刷新页面后仍能看到进行中的下载）；下载中每秒轮询，完成后自动重新诊断。
+    useEffect(() => {
+        getSingboxDownloadStatus().then((res) => res?.data && setDl(res.data)).catch(() => {});
+    }, []);
+    useEffect(() => {
+        if (!downloading) return undefined;
+        const timer = setInterval(async () => {
+            try {
+                const res = await getSingboxDownloadStatus();
+                if (res?.data) {
+                    setDl(res.data);
+                    if (res.data.state === "done") runDiagnose();
+                }
+            } catch (e) { /* 下一轮再试 */ }
+        }, 1000);
+        return () => clearInterval(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [downloading]);
 
     const runDiagnose = async () => {
         setDiagLoading(true);
@@ -205,6 +237,19 @@ export function ServerSettings() {
                                     {diagResult && <DiagnoseResult r={diagResult} t={t} />}
                                 </div>
 
+                                <div className="space-y-2 rounded-lg border p-4">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div>
+                                            <div className="text-base font-medium">{t("server.singbox_download.title")}</div>
+                                            <p className="text-sm text-muted-foreground">{t("server.singbox_download.description")}</p>
+                                        </div>
+                                        <Button variant="outline" size="sm" onClick={runDownload} loading={downloading} disabled={downloading}>
+                                            {dl.state === "done" || dl.state === "error" ? t("server.singbox_download.button_retry") : t("server.singbox_download.button")}
+                                        </Button>
+                                    </div>
+                                    <DownloadStatus dl={dl} t={t} />
+                                </div>
+
                                 <ToggleField label={t("server.node_probe_singbox_auto_download.title")} description={t("server.node_probe_singbox_auto_download.description")} checked={values.node_probe_singbox_auto_download ?? true} onChange={(v) => setField("node_probe_singbox_auto_download", v)} />
                                 {values.node_probe_singbox_auto_download && (
                                     <div className="space-y-1.5">
@@ -280,6 +325,7 @@ export function ServerSettings() {
                         )}
                     </>
                 )}
+                <CountriesCard t={t} time={values.country_refresh_time || "04:00"} onTimeChange={(v) => setField("country_refresh_time", v)} tags={values.country_tags ?? ""} onTagsChange={(v) => setField("country_tags", v)} />
                 {saving && <div className="text-sm text-muted-foreground">{t("server.saving")}</div>}
             </div>
         </div>
@@ -335,6 +381,131 @@ function DiagnoseResult({ r, t }) {
             ) : (
                 <div className="pl-5 text-sm text-muted-foreground">{t("server.probe_diagnose.no_node")}</div>
             )}
+        </div>
+    );
+}
+
+function formatBytes(n) {
+    if (!n) return "0 B";
+    const u = ["B", "KB", "MB", "GB"];
+    let i = 0;
+    let v = n;
+    while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+    return `${v.toFixed(i === 0 ? 0 : 1)} ${u[i]}`;
+}
+
+function DownloadStatus({ dl, t }) {
+    if (!dl || dl.state === "idle") return null;
+    if (dl.state === "downloading") {
+        const pct = dl.total > 0 ? Math.min(100, Math.round((dl.downloaded / dl.total) * 100)) : null;
+        return (
+            <div className="space-y-1.5">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div className={`h-full rounded-full bg-primary transition-all ${pct === null ? "w-1/3 animate-pulse" : ""}`} style={pct === null ? undefined : { width: `${pct}%` }} />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                    {dl.message || t("server.singbox_download.downloading")}
+                    {dl.total > 0 ? ` · ${formatBytes(dl.downloaded)} / ${formatBytes(dl.total)} (${pct}%)` : dl.downloaded > 0 ? ` · ${formatBytes(dl.downloaded)}` : ""}
+                </p>
+            </div>
+        );
+    }
+    if (dl.state === "done") {
+        return (
+            <div className="space-y-0.5 text-sm text-green-600 dark:text-green-400">
+                <div>✓ {t("server.singbox_download.done")}{dl.version ? `（${t("server.singbox_download.version")} ${dl.version}）` : ""}</div>
+                {dl.path && <div className="break-all text-muted-foreground">{t("server.singbox_download.path")}：{dl.path}</div>}
+            </div>
+        );
+    }
+    return <div className="break-all text-sm text-red-600 dark:text-red-400">✗ {t("server.singbox_download.failed")}：{dl.message}</div>;
+}
+
+// 可用国家快照：展示上次更新时间与国家列表，支持手动更新（先测速再生成），更新期间轮询进度。
+function CountriesCard({ t, time, onTimeChange, tags, onTagsChange }) {
+    const [status, setStatus] = useState(null);
+    const [starting, setStarting] = useState(false);
+    const [error, setError] = useState("");
+    const refreshing = starting || !!status?.refreshing;
+
+    const load = useCallback(async () => {
+        try {
+            const res = await getCountriesStatus();
+            setStatus(res?.data ?? null);
+            setError("");
+        } catch (e) {
+            setError(e?.response?.data?.message || e?.message || "请求失败");
+        }
+    }, []);
+
+    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        if (!status?.refreshing) return undefined;
+        const timer = setInterval(load, 2000);
+        return () => clearInterval(timer);
+    }, [status?.refreshing, load]);
+
+    const refresh = async () => {
+        setStarting(true);
+        try {
+            await refreshCountries(true);
+            await load();
+        } catch (e) {
+            setError(e?.response?.data?.message || e?.message || "请求失败");
+        } finally {
+            setStarting(false);
+        }
+    };
+
+    const snap = status?.snapshot;
+    const countries = snap?.countries || [];
+    const sourceLabel = snap?.source ? t("server.countries.source_" + snap.source) : "";
+
+    return (
+        <div className="space-y-2 rounded-lg border p-4">
+            <div className="flex items-center justify-between gap-2">
+                <div>
+                    <div className="text-base font-medium">{t("server.countries.title")}</div>
+                    <p className="text-sm text-muted-foreground">{t("server.countries.description")}</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={refresh} loading={refreshing} disabled={refreshing}>
+                    {t("server.countries.button")}
+                </Button>
+            </div>
+            {refreshing && <p className="text-sm text-muted-foreground">{t("server.countries.refreshing")}</p>}
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {status && (
+                <p className="text-sm text-muted-foreground">
+                    {status.exists
+                        ? `${t("server.countries.updated")}：${new Date(snap.updated_at * 1000).toLocaleString()}${sourceLabel ? `（${sourceLabel}）` : ""} · ${countries.length} ${t("server.countries.count")}`
+                        : t("server.countries.never")}
+                    {" · "}{t("server.countries.auto").replace("{time}", time)}
+                </p>
+            )}
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+                <div className="text-sm font-medium">{t("server.countries.time_label")}</div>
+                <Input type="time" className="w-32" value={time} onChange={(e) => e.target.value && onTimeChange(e.target.value)} />
+                <p className="text-sm text-muted-foreground">{t("server.countries.time_desc")}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+                <div className="text-sm font-medium">{t("server.countries.tags_label")}</div>
+                <Input className="w-64" placeholder={t("server.countries.tags_placeholder")} value={tags} onChange={(e) => onTagsChange(e.target.value)} />
+                <p className="text-sm text-muted-foreground">{t("server.countries.tags_desc")}</p>
+            </div>
+            {snap?.kept && <p className="text-sm text-amber-600 dark:text-amber-400">{t("server.countries.kept")}</p>}
+            {status?.exists && countries.length === 0 && <p className="text-sm text-muted-foreground">{t("server.countries.empty")}</p>}
+            {countries.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                    {countries.map((c) => (
+                        <span key={c.code} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-sm">
+                            <span>{c.flag}</span>
+                            <span>{c.name}</span>
+                            <span className="text-muted-foreground">{c.nodes} {t("server.countries.nodes")}{c.best_latency_ms != null ? ` · ${c.best_latency_ms}ms` : ""}</span>
+                        </span>
+                    ))}
+                </div>
+            )}
+            {snap?.unknown_country > 0 && <p className="text-sm text-muted-foreground">{snap.unknown_country} {t("server.countries.unknown")}</p>}
         </div>
     );
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { BRAND_NAME, BrandMark } from "./Brand.jsx";
 import { buildHashHref } from "../utils/query.js";
 import { useHashLocation } from "../composables/useHashLocation.js";
 import { classNames } from "../utils/classNames.js";
@@ -24,6 +25,7 @@ const ICONS = {
     users: <><path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" /><path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /><path d="M21 21v-2a4 4 0 0 0 -3 -3.85" /></>,
     user: <><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></>,
     ticket: <><path d="M15 5l0 2" /><path d="M15 11l0 2" /><path d="M15 17l0 2" /><path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></>,
+    device: <><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14z" /><path d="M11 4h2" /><path d="M12 17v.01" /></>,
     chevron: <path d="M6 9l6 6l6 -6" />,
     x: <><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></>,
     menu: <><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></>,
@@ -54,6 +56,7 @@ const NAV_GROUPS = [
     { id: "user", titleKey: "userManagement", icon: "users", items: [
         { titleKey: "userManagement", path: "/user/manage", icon: "user" },
         { titleKey: "ticketManagement", path: "/user/ticket", icon: "ticket" },
+        { titleKey: "deviceManagement", path: "/user/device", icon: "device" },
     ] },
 ];
 
@@ -221,9 +224,9 @@ export function Sidebar({ collapsed = false, onToggleCollapsed, onMobileOpenChan
             <div className="relative w-full flex flex-col h-[var(--header-height)] md:h-full bg-background">
                 <div className="flex h-[var(--header-height)] flex-none items-center gap-4 bg-background p-4 sticky top-0 justify-between px-4 py-3 shadow md:px-4">
                     <div className="flex items-center gap-2">
-                        <Icon name="logo" className="admin-sidebar-logo transition-all h-8 w-8" />
-                        <span className="sr-only">Website Name</span>
-                        <div className="admin-sidebar-label flex flex-col justify-end truncate visible w-auto"><span className="font-medium">XBoard</span></div>
+                        <BrandMark size={34} className="admin-sidebar-logo transition-all h-8 w-8" />
+                        <span className="sr-only">{BRAND_NAME}</span>
+                        <div className="admin-sidebar-label flex flex-col justify-end truncate visible w-auto"><span className="lv-brand__name">{BRAND_NAME}</span></div>
                     </div>
                     <button className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 w-9 md:hidden" aria-label={tCommon("toggleNavigation")} aria-controls="sidebar-menu" aria-expanded={mobileOpen} onClick={() => setMobileOpen((value) => !value)}>
                         <Icon name={mobileOpen ? "x" : "menu"} size={24} />

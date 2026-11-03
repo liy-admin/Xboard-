@@ -140,7 +140,7 @@ export function SafeSettings() {
                         <FormField label={t("safe.form.passwordLimit.expire.label")} placeholder={t("safe.form.passwordLimit.expire.placeholder")} description={t("safe.form.passwordLimit.expire.description")} value={values.password_limit_expire ?? ""} onChange={(v) => setField("password_limit_expire", v)} />
                     </>
                 )}
-                {saving && <div className="text-sm text-muted-foreground">{t("safe.form.saving")}</div>}
+                {saving && <div className="text-sm text-muted-foreground">{t("common.saving")}</div>}
             </div>
         </div>
     );

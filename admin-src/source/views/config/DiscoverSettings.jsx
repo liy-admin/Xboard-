@@ -14,6 +14,7 @@ const DEFAULTS = {
     discover_prompt_body: "",
     discover_prompt_button_text: "",
     discover_prompt_cancel_text: "",
+    discover_nav_page_url: "",
 };
 
 export function DiscoverSettings() {
@@ -128,6 +129,7 @@ export function DiscoverSettings() {
                 <FormField as={Textarea} label={t("discover.discover_prompt_body.title")} placeholder={t("discover.discover_prompt_body.placeholder")} value={values.discover_prompt_body ?? ""} onChange={(v) => setField("discover_prompt_body", v)} />
                 <FormField label={t("discover.discover_prompt_button_text.title")} placeholder={t("discover.discover_prompt_button_text.placeholder")} value={values.discover_prompt_button_text ?? ""} onChange={(v) => setField("discover_prompt_button_text", v)} />
                 <FormField label={t("discover.discover_prompt_cancel_text.title")} placeholder={t("discover.discover_prompt_cancel_text.placeholder")} value={values.discover_prompt_cancel_text ?? ""} onChange={(v) => setField("discover_prompt_cancel_text", v)} />
+                <FormField label={t("discover.discover_nav_page_url.title")} placeholder={t("discover.discover_nav_page_url.placeholder")} description={t("discover.discover_nav_page_url.description")} value={values.discover_nav_page_url ?? ""} onChange={(v) => setField("discover_nav_page_url", v)} />
                 {saving && <div className="text-sm text-muted-foreground">{t("discover.saving")}</div>}
                 {error && <div className="text-sm text-destructive">{error}</div>}
             </div>

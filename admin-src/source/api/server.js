@@ -70,6 +70,35 @@ export function batchImportNodes(data) {
     return http.post(sp() + "/server/manage/batchImport", data);
 }
 
+// 订阅导入预设
+export function getImportSubscriptions() {
+    return http.get(sp() + "/server/manage/importSubscriptions");
+}
+
+export function saveImportSubscriptions(subscriptions) {
+    return http.post(sp() + "/server/manage/importSubscriptions", { subscriptions });
+}
+
+// 带某个订阅标识的节点数（删除前确认用）
+export function countNodesByTag(tag) {
+    return http.get(sp() + "/server/manage/countByTag?tag=" + encodeURIComponent(tag));
+}
+
+// 删除带某个订阅标识的全部节点（订阅预设保留）
+export function deleteNodesByTag(tag) {
+    return http.post(sp() + "/server/manage/deleteByTag", { tag });
+}
+
+// 停止正在进行的测速（当前节点测完后停止）
+export function stopNodeProbe() {
+    return http.post(sp() + "/server/manage/probeStop", {});
+}
+
+// 从 Balala 订阅抓取插件获取最近一次订阅链接
+export function getPluginSubscription() {
+    return http.get(sp() + "/server/manage/pluginSubscription");
+}
+
 // Permission groups
 export function fetchGroups() {
     return http.get(sp() + "/server/group/fetch");
@@ -127,4 +156,19 @@ export function getMachineNodes(params) {
 
 export function getMachineHistory(id, duration = 360, params) {
     return http.get(sp() + "/server/machine/history", { params: { id, duration, ...params } });
+}
+
+// 一键为服务器创建 VLESS + Reality 节点
+export function quickCreateMachineNode(data) {
+    return http.post(sp() + "/server/machine/quickNode", data);
+}
+
+// 实测服务器上的一个节点是否可用（同步，几秒到十几秒）
+export function testMachineNode(id) {
+    return http.post(sp() + "/server/machine/testNode", { id }, { timeout: 60000 });
+}
+
+// 服务器上全部节点的分享链接；email 为空时每个节点用其权限组里的第一个可用用户
+export function getMachineNodeLinks(machineId, email) {
+    return http.get(sp() + "/server/machine/nodeLinks", { params: { id: machineId, email: email || undefined } });
 }

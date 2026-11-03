@@ -11,6 +11,7 @@ import { SearchFilterToolbar } from "../../components/SearchFilterToolbar.jsx";
 import { FormDialog } from "../../components/FormDialog.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/Select.jsx";
+import { ClientRoutingCard } from "../../components/ClientRoutingCard.jsx";
 
 const ACTIONS = ["block", "dns", "direct", "proxy"];
 const EMPTY_FORM = { id: null, remarks: "", match: "", action: "block", action_value: "" };
@@ -154,6 +155,9 @@ export function RouteManagement() {
                     </TableBody>
                 </Table>
             </div>
+
+            <hr className="my-6" />
+            <ClientRoutingCard />
 
             <FormDialog
                 open={formOpen}

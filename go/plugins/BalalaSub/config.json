@@ -1,0 +1,152 @@
+{
+    "name": "Balala 订阅抓取",
+    "code": "balala_sub",
+    "version": "1.0.1",
+    "description": "基于 DrissionPage 自动登录 balala.io 并抓取订阅链接 URL，结果写入缓存供命令/接口读取。",
+    "author": "kol",
+    "require": {
+        "xboard": ">=1.0.0"
+    },
+    "config": {
+        "site_url": {
+            "type": "string",
+            "default": "https://balala.io",
+            "label": "站点地址",
+            "description": "面板根地址，不带结尾斜杠，例如 https://balala.io"
+        },
+        "email": {
+            "type": "string",
+            "default": "shegong01@proton.me",
+            "label": "登录邮箱",
+            "description": "用于自动登录的账号邮箱"
+        },
+        "password": {
+            "type": "string",
+            "default": "Oppo123123.",
+            "label": "登录密码",
+            "description": "用于自动登录的账号密码（仅存库，抓取时通过环境变量传给 Python，不进命令行参数）"
+        },
+        "cookie": {
+            "type": "text",
+            "default": "",
+            "label": "会话 Cookie（绕过验证码）",
+            "description": "该站登录开启了 Cloudflare Turnstile 验证码。若自动登录被拦，可在浏览器手动登录后，把 Cookie 请求头整串粘贴到这里，脚本将直接带 Cookie 抓取，优先于账号密码。"
+        },
+        "python_bin": {
+            "type": "string",
+            "default": "python",
+            "label": "Python 可执行文件",
+            "description": "运行抓取脚本的 Python 命令或绝对路径，例如 python3 或 /usr/bin/python3"
+        },
+        "chrome_path": {
+            "type": "file",
+            "default": "",
+            "label": "Firefox 内核",
+            "accept": ".zip,.tar.xz,.tar.gz,.tgz",
+            "upload_url": "/api/v1/balala-sub/upload-firefox",
+            "upload_text": "上传内核",
+            "uploading_text": "上传解压中...",
+            "placeholder": "firefox 可执行文件路径，或点右侧上传 zip 自动填充",
+            "description": "可直接填 firefox.exe/firefox 绝对路径；或上传 ruyiPage 配套 Firefox 内核 zip，服务器会自动解压并填入路径。留空则用 `python -m ruyipage install` 下载的运行时。"
+        },
+        "headless": {
+            "type": "boolean",
+            "default": true,
+            "label": "无头模式",
+            "description": "是否以无界面方式运行浏览器（服务器环境请开启）"
+        },
+        "timeout": {
+            "type": "number",
+            "default": 120,
+            "label": "超时时间(秒)",
+            "description": "单次登录 + 抓取的最长等待时间。Firefox 冷启动较慢，建议 >=120"
+        },
+        "cache_ttl": {
+            "type": "number",
+            "default": 86400,
+            "label": "缓存有效期(秒)",
+            "description": "抓取到的订阅链接在缓存中的保存时长"
+        },
+        "auto_import": {
+            "type": "boolean",
+            "default": false,
+            "label": "定时自动导入节点",
+            "description": "开启后，按下方间隔自动「抓取最新订阅 → 按标识删旧 → 导入最新」节点。依赖主程序的 schedule:run 定时任务在运行。"
+        },
+        "auto_import_interval_hours": {
+            "type": "number",
+            "default": 24,
+            "label": "定时导入间隔(小时)",
+            "description": "每隔多少小时自动导入一次"
+        },
+        "auto_import_tag": {
+            "type": "string",
+            "default": "Balala",
+            "label": "订阅标识",
+            "description": "导入节点统一打上的标识(节点标签)。定时导入会先删掉带此标识的旧节点再导入最新的，实现整批替换。建议务必填写。"
+        },
+        "auto_import_group_ids": {
+            "type": "string",
+            "default": "",
+            "label": "权限组ID",
+            "description": "导入节点分配到的权限组ID，多个用英文逗号分隔，如 1,2。留空则不分配。"
+        },
+        "auto_import_rate": {
+            "type": "number",
+            "default": 1,
+            "label": "倍率",
+            "description": "导入节点的流量倍率"
+        },
+        "auto_import_show": {
+            "type": "boolean",
+            "default": true,
+            "label": "导入后显示节点",
+            "description": "导入的节点是否对用户可见"
+        },
+        "auto_import_client": {
+            "type": "string",
+            "default": "v2rayn",
+            "label": "订阅客户端类型",
+            "description": "使用哪种客户端的订阅链接来解析节点，默认 v2rayn(通用 base64)。可选 clash/surge 等。"
+        },
+        "info_node_keywords": {
+            "type": "string",
+            "default": "",
+            "label": "信息条目过滤词(额外)",
+            "description": "导入时会自动过滤机场塞进订阅的非节点信息条目(到期/流量/官网/Expire/Traffic/Sync 等,内置一批)。如仍有漏网,在此补充关键词,英文逗号分隔;节点名里含这些词的会被跳过。"
+        },
+        "auto_reimport_on_empty": {
+            "type": "boolean",
+            "default": false,
+            "label": "无可用节点时自动重导",
+            "description": "开启后：测速(check:server-latency)发现 0 个可用节点时，自动排队一次导入，由定时任务在约 1 分钟内执行『抓取最新订阅 → 按标识替换』，形成自愈闭环。需 schedule:run 每分钟 cron 在运行。"
+        },
+        "auto_import_run": {
+            "type": "action",
+            "default": "",
+            "label": "立即拉取并替换",
+            "action_url": "server/manage/pluginImport",
+            "action_text": "立即导入",
+            "running_text": "导入中(约1-2分钟)...",
+            "description": "立刻执行一次并显示结果：抓取最新订阅 → 按标识删旧 → 导入最新。需启动浏览器，约 1-2 分钟，请耐心等待；结果(删X增Y / 真实报错)会直接显示在下方。"
+        },
+        "setup_env": {
+            "type": "action",
+            "default": "",
+            "label": "一键安装环境",
+            "action_url": "server/manage/pluginSetup",
+            "action_text": "安装环境",
+            "running_text": "安装中...",
+            "description": "在后台实际使用的 Python 里自动 pip 安装 ruyiPage（无需手动找环境）。装完点下方「开始自检」验证。Firefox 内核仍需在上方上传或服务器下载。"
+        },
+        "env_check": {
+            "type": "action",
+            "default": "",
+            "label": "环境自检",
+            "action_url": "server/manage/pluginDoctor",
+            "action_text": "开始自检",
+            "running_text": "检查中...",
+            "description": "检查 Python / ruyiPage / Firefox / 登录凭据是否齐备。完整验证（含真实抓取）可在服务器执行 php artisan balala-sub:doctor --full。"
+        }
+    }
+}

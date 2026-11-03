@@ -242,7 +242,7 @@ function translate(messages, namespace, key, fallbackOrValues, explicitFallback)
     const [explicitNamespace, explicitKey] = key.includes(":") ? key.split(":") : [namespace, key];
     const value = readPath(messages?.[explicitNamespace], explicitKey);
     const values = isObject(fallbackOrValues) ? fallbackOrValues : null;
-    const fallback = isObject(fallbackOrValues) ? explicitFallback : fallbackOrValues;
+    const fallback = typeof fallbackOrValues === "string" ? fallbackOrValues : explicitFallback;
 
     if (typeof value === "string") {
         return interpolate(value, values);

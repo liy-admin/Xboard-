@@ -4,11 +4,14 @@ import { useAuthState } from "../../store/auth.js";
 import { getCurrencySymbol, useCurrencySymbol } from "../../store/config.js";
 import { fetchOrders, getOrderDetail, payOrder, cancelOrder, updateOrder, assignOrder } from "../../api/order.js";
 import { fetchPlans } from "../../api/plan.js";
+import { useQueryParam } from "../../composables/useQueryParam.js";
+import { navigate } from "../../router/index.js";
 import { Button } from "../../components/Button.jsx";
 import { Input } from "../../components/Input.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
 import { SearchFilterToolbar } from "../../components/SearchFilterToolbar.jsx";
+import { OrderCleanupCard } from "./OrderCleanupCard.jsx";
 import { FormDialog } from "../../components/FormDialog.jsx";
 import { Dialog } from "../../components/Dialog.jsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/Select.jsx";
@@ -51,6 +54,14 @@ function formatDateTime(seconds) {
     return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+// 支付方式：优先显示支付通道名；没有通道时按余额抵扣 / 后台手动确认区分，其余为 "-"。
+function paymentLabel(order, t) {
+    if (order.payment?.name) return order.payment.name;
+    if (order.balance_amount > 0) return t("table.columns.paymentBalance", "余额");
+    if (order.callback_no === "manual_operation") return t("table.columns.paymentManual", "手动确认");
+    return "-";
+}
+
 function DetailRow({ label, value, valueClassName = "" }) {
     return (
         <div className="flex items-center py-1.5">
@@ -71,6 +82,13 @@ export function OrderManagement() {
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
 
+    // 从用户列表点「订单」进入时地址里带 ?user_id=eq:<ID>：只显示该用户的订单。
+    const userIdParam = useQueryParam("user_id");
+    const userIdFilter = useMemo(() => {
+        const raw = String(userIdParam || "").replace(/^eq:/i, "").trim();
+        return /^\d+$/.test(raw) ? raw : "";
+    }, [userIdParam]);
+
     const [search, setSearch] = useState("");
     const [typeFilter, setTypeFilter] = useState("all");
     const [periodFilter, setPeriodFilter] = useState("all");
@@ -87,6 +105,7 @@ export function OrderManagement() {
 
     const buildFilter = () => {
         const filter = [];
+        if (userIdFilter) filter.push({ id: "user_id", value: `eq:${userIdFilter}` });
         if (search.trim()) filter.push({ id: "trade_no", value: search.trim() });
         if (typeFilter !== "all") filter.push({ id: "type", value: parseInt(typeFilter, 10) });
         if (periodFilter !== "all") filter.push({ id: "period", value: periodFilter });
@@ -110,7 +129,12 @@ export function OrderManagement() {
     useEffect(() => {
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [auth.token, page, filtersVersion]);
+    }, [auth.token, page, filtersVersion, userIdFilter]);
+
+    // 切换用户筛选时回到第一页
+    useEffect(() => {
+        setPage(1);
+    }, [userIdFilter]);
 
     useEffect(() => {
         fetchPlans().then((res) => setPlans(res?.data || [])).catch(() => setPlans([]));
@@ -160,6 +184,10 @@ export function OrderManagement() {
     const handleCommissionUpdate = async (order, commission_status) => {
         await updateOrder({ trade_no: order.trade_no, commission_status });
         await load();
+        if (detailId) {
+            const res = await getOrderDetail({ id: detailId });
+            setDetail(res?.data || null);
+        }
     };
 
     const openAssign = () => {
@@ -204,6 +232,21 @@ export function OrderManagement() {
                 <p className="text-sm text-muted-foreground">{t("description")}</p>
             </div>
             <hr className="my-6" />
+
+            <OrderCleanupCard onCleaned={load} />
+
+            {userIdFilter ? (
+                <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-accent px-4 py-2.5 text-sm">
+                    <span className="font-medium text-accent-foreground">
+                        {t("userFilter.active", { id: userIdFilter }, "正在查看用户 #{{id}} 的订单")}
+                    </span>
+                    <span className="text-muted-foreground">{t("userFilter.total", { count: total }, "共 {{count}} 笔")}</span>
+                    <Button variant="outline" size="sm" className="ml-auto h-7 px-2 text-xs" type="button"
+                        onClick={() => navigate("/finance/order")}>
+                        {t("userFilter.clear", "显示全部订单")}
+                    </Button>
+                </div>
+            ) : null}
 
             <SearchFilterToolbar
                 search={search}
@@ -267,8 +310,8 @@ export function OrderManagement() {
                             <TableHead>{t("table.columns.period")}</TableHead>
                             <TableHead>{t("table.columns.amount")}</TableHead>
                             <TableHead>{t("table.columns.status")}</TableHead>
-                            <TableHead>{t("table.columns.commission")}</TableHead>
-                            <TableHead>{t("table.columns.commissionStatus")}</TableHead>
+                            <TableHead>{t("table.columns.payment", "支付方式")}</TableHead>
+                            <TableHead>{t("table.columns.payer", "支付人")}</TableHead>
                             <TableHead>{t("table.columns.createdAt")}</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -282,7 +325,6 @@ export function OrderManagement() {
                                 const tradeNo = order.trade_no || "";
                                 const shortTrade = tradeNo.length > 6 ? `${tradeNo.slice(0, 3)}...${tradeNo.slice(-3)}` : tradeNo;
                                 const statusKey = STATUS_LABEL[order.status];
-                                const commissionKey = COMMISSION_LABEL[order.commission_status];
                                 const typeKey = TYPE_LABEL[order.type];
                                 return (
                                     <TableRow key={order.id}>
@@ -316,27 +358,17 @@ export function OrderManagement() {
                                                 )}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="font-mono">{order.commission_balance ? formatMoney(order.commission_balance) : "-"}</TableCell>
-                                        <TableCell>
-                                            {order.commission_balance && commissionKey ? (
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`w-fit rounded-md px-2 py-0.5 text-xs font-medium ${COMMISSION_CLASS[order.commission_status] || ""}`}>
-                                                        {t(`commission.${commissionKey}`)}
-                                                    </span>
-                                                    {order.commission_status === COMMISSION.PENDING && order.status === STATUS.COMPLETED && (
-                                                        <div className="flex gap-1">
-                                                            <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => handleCommissionUpdate(order, COMMISSION.PROCESSING)}>
-                                                                {t("commission.PROCESSING")}
-                                                            </Button>
-                                                            <Button variant="destructive" size="sm" className="h-7 px-2 text-xs" onClick={() => handleCommissionUpdate(order, COMMISSION.INVALID)}>
-                                                                {t("commission.INVALID")}
-                                                            </Button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <span className="text-muted-foreground">-</span>
-                                            )}
+                                        <TableCell className="whitespace-nowrap">{paymentLabel(order, t)}</TableCell>
+                                        <TableCell className="max-w-[220px]">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 max-w-full justify-start px-2 text-primary"
+                                                title={t("table.columns.payerHint", "点击查看该用户的全部订单")}
+                                                onClick={() => navigate(`/finance/order?user_id=eq:${order.user_id}`)}
+                                            >
+                                                <span className="truncate">{order.user?.email || `#${order.user_id}`}</span>
+                                            </Button>
                                         </TableCell>
                                         <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">{formatDateTime(order.created_at)}</TableCell>
                                     </TableRow>
@@ -446,6 +478,16 @@ export function OrderManagement() {
                                             </span>
                                         }
                                     />
+                                    {detail.commission_status === COMMISSION.PENDING && detail.status === STATUS.COMPLETED && (
+                                        <div className="flex gap-2 py-1.5">
+                                            <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => handleCommissionUpdate(detail, COMMISSION.PROCESSING)}>
+                                                {t("commission.PROCESSING")}
+                                            </Button>
+                                            <Button variant="destructive" size="sm" className="h-7 px-2 text-xs" onClick={() => handleCommissionUpdate(detail, COMMISSION.INVALID)}>
+                                                {t("commission.INVALID")}
+                                            </Button>
+                                        </div>
+                                    )}
                                     <DetailRow label={t("dialog.fields.commissionAmount")} value={formatMoney(detail.commission_balance)} valueClassName="font-medium text-orange-600" />
                                     {Boolean(detail.actual_commission_balance) && (
                                         <DetailRow label={t("dialog.fields.actualCommissionAmount")} value={formatMoney(detail.actual_commission_balance)} valueClassName="font-medium text-orange-700" />

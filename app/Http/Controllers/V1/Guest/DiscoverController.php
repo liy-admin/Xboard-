@@ -23,6 +23,7 @@ class DiscoverController extends Controller
             'prompt_body' => admin_setting('discover_prompt_body'),
             'prompt_button_text' => admin_setting('discover_prompt_button_text'),
             'prompt_cancel_text' => admin_setting('discover_prompt_cancel_text'),
+            'nav_page_url' => admin_setting('discover_nav_page_url'),
         ];
 
         $data = HookManager::filter('guest_discover_config', $data);

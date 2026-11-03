@@ -210,7 +210,7 @@ class UserController extends Controller
         $pageSize = $request->input('pageSize', 10);
 
         $userModel = User::query()
-            ->with(['plan:id,name', 'invite_user:id,email', 'group:id,name'])
+            ->with(['plan:id,name', 'invite_user:id,email', 'group:id,name', 'codes:id,user_id,code,status'])
             ->select((new User())->getTable() . '.*')
             ->selectRaw('(u + d) as total_used');
 

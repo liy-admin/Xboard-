@@ -2,7 +2,7 @@ window.XBOARD_TRANSLATIONS = window.XBOARD_TRANSLATIONS || {};
 window.XBOARD_TRANSLATIONS['vi-VN'] = {
   "theme": {
     "title": "Cấu hình giao diện",
-    "description": "Cấu hình giao diện, bao gồm màu sắc, kích thước phông chữ, v.v. Nếu bạn triển khai Xboard với frontend và backend tách biệt, cấu hình giao diện sẽ không có hiệu lực.",
+    "description": "Cấu hình giao diện, bao gồm màu sắc, kích thước phông chữ, v.v. Nếu bạn triển khai Lets VPN với frontend và backend tách biệt, cấu hình giao diện sẽ không có hiệu lực.",
     "upload": {
       "button": "Tải lên giao diện",
       "title": "Tải lên giao diện",
@@ -430,6 +430,11 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
   },
   "auth": {
     "signIn": {
+      "heroTitle": "Kết nối an toàn, ổn định và nhanh",
+      "heroSubtitle": "Quản lý node, người dùng, đơn hàng và gói đăng ký tại một nơi.",
+      "heroPoint1": "Điều phối nhiều node với trạng thái trực tiếp",
+      "heroPoint2": "Gói, đơn hàng và thanh toán tập trung",
+      "heroPoint3": "Tự động nhắc lưu lượng và hết hạn",
       "title": "Đăng nhập",
       "description": "Nhập email và mật khẩu để đăng nhập",
       "email": "Email",
@@ -515,6 +520,11 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
     }
   },
   "order": {
+    "userFilter": {
+      "active": "Đang xem đơn hàng của người dùng #{{id}}",
+      "total": "Tổng {{count}}",
+      "clear": "Hiện tất cả đơn hàng"
+    },
     "title": "Quản lý Đơn hàng",
     "description": "Tại đây bạn có thể xem đơn hàng của người dùng, bao gồm gán, xem, xóa và các thao tác khác.",
     "table": {
@@ -768,7 +778,7 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
     "description": "Cài đặt thông số kết nối và đồng bộ node, bao gồm khóa kết nối, khoảng thời gian polling, cân bằng tải và các tham số nâng cao khác.",
     "server_token": {
       "title": "Khóa kết nối",
-      "description": "Khóa dùng để giao tiếp giữa Xboard và các node nhằm ngăn chặn truy cập trái phép.",
+      "description": "Khóa dùng để giao tiếp giữa Lets VPN và các node nhằm ngăn chặn truy cập trái phép.",
       "placeholder": "Vui lòng nhập khóa kết nối"
     },
     "server_pull_interval": {
@@ -2220,7 +2230,7 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
       },
       "email_from_name": {
         "title": "Tên người gửi",
-        "description": "Vd: 'Quản trị Xboard'"
+        "description": "Vd: 'Quản trị Lets VPN'"
       },
       "email_template": {
         "title": "Mẫu Email",

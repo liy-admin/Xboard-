@@ -292,6 +292,14 @@ export function PlanManagement() {
                 }
             />
 
+            {items.some((p) => (p.group_id ?? p.group?.id) == null) && (
+                <div className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400">
+                    {t("group:form.missing_banner", {
+                        names: items.filter((p) => (p.group_id ?? p.group?.id) == null).map((p) => p.name).join("、"),
+                    })}
+                </div>
+            )}
+
             <div className="mt-4">
                 <Table>
                     <TableHeader>
@@ -354,7 +362,13 @@ export function PlanManagement() {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        {item.group?.name ? <Badge variant="secondary">{item.group.name}</Badge> : <span className="text-xs text-muted-foreground">-</span>}
+                                        {item.group?.name ? (
+                                            <Badge variant="secondary">{item.group.name}</Badge>
+                                        ) : (item.group_id ?? item.group?.id) == null ? (
+                                            <Badge variant="outline" className="border-red-300 text-red-600 dark:border-red-800 dark:text-red-400">{t("group:form.missing_badge")}</Badge>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground">-</span>
+                                        )}
                                     </TableCell>
                                     <TableCell>
                                         {item.prices ? (
@@ -427,6 +441,9 @@ export function PlanManagement() {
                                 {groups.map((g) => <SelectItem key={g.id} value={String(g.id)}>{g.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
+                        {form.group_id == null && (
+                            <p className="text-xs text-red-600 dark:text-red-400">{t("group:form.missing_form")}</p>
+                        )}
                     </div>
                     <div className="space-y-1.5">
                         <div className="text-sm font-medium">{t("plan.form.transfer.label")} ({t("plan.form.transfer.unit")})</div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { BRAND_NAME } from "../../components/Brand.jsx";
 import { Sidebar } from "../../components/Sidebar.jsx";
 import { useDocumentTitle } from "../../composables/useDocumentTitle.js";
 import { useHashLocation } from "../../composables/useHashLocation.js";
@@ -19,6 +20,7 @@ import { OrderManagement } from "../config/OrderManagement.jsx";
 import { GiftCardManagement } from "../config/GiftCardManagement.jsx";
 import { UserManagement } from "../config/UserManagement.jsx";
 import { TicketManagement } from "../config/TicketManagement.jsx";
+import { DeviceManagement } from "../config/DeviceManagement.jsx";
 
 const SIDEBAR_COLLAPSED_KEY = "collapsed-sidebar";
 
@@ -43,7 +45,7 @@ function writeSidebarCollapsed(value) {
 }
 
 export function HomeView() {
-    const title = globalThis.window?.settings?.title || "XBoard";
+    const title = globalThis.window?.settings?.title || BRAND_NAME;
     const location = useHashLocation();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -80,6 +82,7 @@ export function HomeView() {
                 {location.pathname === "/finance/gift-card" ? <GiftCardManagement /> : null}
                 {location.pathname === "/user/manage" ? <UserManagement /> : null}
                 {location.pathname === "/user/ticket" ? <TicketManagement /> : null}
+                {location.pathname === "/user/device" ? <DeviceManagement /> : null}
             </main>
         </div>
     );

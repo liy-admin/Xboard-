@@ -40,6 +40,7 @@ class ConfigSave extends FormRequest
         'discover_prompt_body' => 'nullable',
         'discover_prompt_button_text' => 'nullable',
         'discover_prompt_cancel_text' => 'nullable',
+        'discover_nav_page_url' => 'nullable',
         // anti-loss（软件防丢失）
         // 地址类字段同样用宽松的 'nullable'（不加 url 校验）：设置页逐字符
         // 自动保存，加 url 规则会在没打完时每次按键都 422，整批存不下去。

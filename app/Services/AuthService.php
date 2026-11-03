@@ -62,11 +62,14 @@ class AuthService
      */
     public function checkDeviceLimit(?string $deviceId): ?string
     {
-        $limit = (int) ($this->user->device_limit ?? 0);
-        if ($limit <= 0 || $deviceId === null || trim($deviceId) === '') {
+        // 无 device_id（旧客户端 / 网页登录 / 第三方客户端）：既不去重也不限制，
+        // 维持兼容。注意：是否设置了 device_limit 不影响“同设备去重”，因此这里
+        // 不能把 device_limit<=0 一起短路掉——否则不限制设备数的账号重新登录时
+        // 不会撤销旧 token，同一台设备会在登录列表里被反复记录。
+        $deviceId = $deviceId !== null ? trim($deviceId) : '';
+        if ($deviceId === '') {
             return null;
         }
-        $deviceId = trim($deviceId);
 
         $deviceTokenIds = [];
         foreach ($this->user->tokens()->get(['id', 'name']) as $token) {
@@ -78,12 +81,16 @@ class AuthService
             $deviceTokenIds[$tokenDeviceId][] = $token->id;
         }
 
+        // 同一台设备重新登录：无论是否设置了 device_limit，都先撤销它名下的旧
+        // token，保证一台设备最多一条登录会话，不占新名额也不产生重复记录。
         if (isset($deviceTokenIds[$deviceId])) {
             $this->user->tokens()->whereIn('id', $deviceTokenIds[$deviceId])->delete();
             return null;
         }
 
-        if (count($deviceTokenIds) >= $limit) {
+        // 新设备：仅在设置了上限（limit>0）时才校验设备数；0 表示不限制。
+        $limit = (int) ($this->user->device_limit ?? 0);
+        if ($limit > 0 && count($deviceTokenIds) >= $limit) {
             return __('This account has reached the device limit (:limit). Please sign out an old device in device management first.', ['limit' => $limit]);
         }
 

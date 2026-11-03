@@ -44,6 +44,11 @@ class Kernel extends ConsoleKernel
         $schedule->command('horizon:snapshot')->everyFiveMinutes()->onOneServer();
         // cleanup stale online_count (GC for Redis TTL expiration)
         $schedule->command('cleanup:online-status')->everyFiveMinutes()->onOneServer();
+        // 定时导入订阅预设（每小时检查到期的预设，按各自 interval_hours 执行）
+        $schedule->command('server:import-subscriptions')
+            ->hourly()
+            ->onOneServer()
+            ->withoutOverlapping(30);
         // 节点测速 + 国家解析；间隔可在后台配置（server_latency_probe_interval，分钟），
         // 命令内部受 server_latency_probe_enable 控制
         $probeInterval = (int) admin_setting('server_latency_probe_interval', 3);

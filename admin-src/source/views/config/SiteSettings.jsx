@@ -110,7 +110,7 @@ export function SiteSettings() {
                 />
                 <FormField label={t("site.form.currency.label")} placeholder={t("site.form.currency.placeholder")} description={t("site.form.currency.description")} value={values.currency ?? ""} onChange={(v) => setField("currency", v)} />
                 <FormField label={t("site.form.currencySymbol.label")} placeholder={t("site.form.currencySymbol.placeholder")} description={t("site.form.currencySymbol.description")} value={values.currency_symbol ?? ""} onChange={(v) => setField("currency_symbol", v)} />
-                {saving && <div className="text-sm text-muted-foreground">{t("site.form.saving")}</div>}
+                {saving && <div className="text-sm text-muted-foreground">{t("common.saving")}</div>}
             </div>
         </div>
     );

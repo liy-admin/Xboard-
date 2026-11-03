@@ -82,7 +82,7 @@ export function FrontendSettings() {
                     <Input placeholder="Nhập URL ảnh" value={values.frontend_background_url ?? ""} onChange={(e) => setField("frontend_background_url", e.target.value)} />
                     <p className="text-sm text-muted-foreground">Hiển thị trên trang đăng nhập backend.</p>
                 </div>
-                {saving && <div className="text-sm text-muted-foreground">{t("site.form.saving")}</div>}
+                {saving && <div className="text-sm text-muted-foreground">{t("common.saving")}</div>}
             </div>
         </div>
     );

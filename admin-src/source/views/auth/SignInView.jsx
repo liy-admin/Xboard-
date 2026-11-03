@@ -1,4 +1,5 @@
 import React from "react";
+import { BRAND_NAME, BrandLockup } from "../../components/Brand.jsx";
 import { Button } from "../../components/Button.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/Card.jsx";
 import { Input } from "../../components/Input.jsx";
@@ -12,25 +13,34 @@ import { ResetPasswordDialog } from "./ResetPasswordDialog.jsx";
 export function SignInView() {
     const { t } = useTranslation("auth");
     const page = useSignInPage();
-    const appTitle = globalThis.window?.settings?.title || t("signIn.title");
+    const appTitle = globalThis.window?.settings?.title || BRAND_NAME;
     const appDescription = globalThis.window?.settings?.description || "";
 
     useDocumentTitle(`${appTitle} · ${t("signIn.title")}`);
 
     return (
         <>
-            <div className="container relative flex min-h-svh flex-col items-center justify-center bg-primary-foreground px-4 py-8 lg:max-w-none lg:px-0">
-                <div className="absolute right-4 top-4 md:right-8 md:top-8">
-                    <LanguageSwitcher />
-                </div>
+            <div className="lv-auth">
+                <aside className="lv-auth__hero">
+                    <BrandLockup size={44} />
+                    <h2 className="lv-auth__headline">{t("signIn.heroTitle")}</h2>
+                    <p className="lv-auth__sub">{appDescription || t("signIn.heroSubtitle")}</p>
+                    <ul className="lv-auth__points">
+                        <li>{t("signIn.heroPoint1")}</li>
+                        <li>{t("signIn.heroPoint2")}</li>
+                        <li>{t("signIn.heroPoint3")}</li>
+                    </ul>
+                </aside>
 
-                <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px] md:w-[420px] lg:p-8">
-                    <div className="flex flex-col space-y-2 text-center">
-                        <h1 className="text-2xl font-bold sm:text-3xl">{appTitle}</h1>
-                        {appDescription ? (
-                            <p className="text-sm text-muted-foreground">{appDescription}</p>
-                        ) : null}
+                <section className="lv-auth__panel">
+                    <div className="absolute right-4 top-4 md:right-8 md:top-8">
+                        <LanguageSwitcher />
                     </div>
+
+                    <div className="lv-auth__form">
+                        <div className="lv-auth__mobile-brand">
+                            <BrandLockup size={40} />
+                        </div>
 
                     <Card className="p-4 sm:p-6">
                         <CardHeader className="p-0 pb-4">
@@ -100,7 +110,8 @@ export function SignInView() {
                             </form>
                         </CardContent>
                     </Card>
-                </div>
+                    </div>
+                </section>
             </div>
 
             <ResetPasswordDialog

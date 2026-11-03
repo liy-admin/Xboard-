@@ -25,3 +25,16 @@ export function updateOrder(data) {
 export function assignOrder(data) {
     return http.post(sp() + "/order/assign", data);
 }
+
+// 已取消订单自动清理：状态（设置 / 待清理数 / 上次结果）、保存设置、立即清理
+export function getCleanupStatus() {
+    return http.get(sp() + "/order/cleanupStatus");
+}
+
+export function saveCleanupSettings(data) {
+    return http.post(sp() + "/order/cleanupSave", data);
+}
+
+export function runCleanup(data) {
+    return http.post(sp() + "/order/cleanupRun", data);
+}

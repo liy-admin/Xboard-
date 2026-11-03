@@ -430,6 +430,11 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
   },
   "auth": {
     "signIn": {
+      "heroTitle": "Secure, stable and fast connectivity",
+      "heroSubtitle": "Manage nodes, users, orders and subscriptions in one place.",
+      "heroPoint1": "Multi-node scheduling with live status",
+      "heroPoint2": "Subscriptions, orders and payments in one place",
+      "heroPoint3": "Automatic traffic and expiry reminders",
       "title": "Sign In",
       "description": "Enter your email and password to sign in",
       "email": "Email",
@@ -515,6 +520,11 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     }
   },
   "order": {
+    "userFilter": {
+      "active": "Showing orders of user #{{id}}",
+      "total": "{{count}} total",
+      "clear": "Show all orders"
+    },
     "title": "Order Management",
     "description": "Here you can view user orders, including assignment, viewing, deletion and other operations.",
     "table": {
@@ -767,7 +777,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     "description": "Configure node communication and synchronization settings, including communication key, polling interval, load balancing and other advanced options.",
     "server_token": {
       "title": "Communication Key",
-      "description": "The key for communication between Xboard and nodes to prevent unauthorized data access.",
+      "description": "The key for communication between Lets VPN and nodes to prevent unauthorized data access.",
       "placeholder": "Please enter communication key"
     },
     "server_pull_interval": {

@@ -23,6 +23,8 @@ import { Textarea } from "../../components/Textarea.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Switch } from "../../components/Switch.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { UserFilterBar } from "./UserFilterBar.jsx";
+import { buildFilter as buildUserFilter } from "./userFilter.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
 import { Dialog } from "../../components/Dialog.jsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/Select.jsx";
@@ -42,9 +44,10 @@ function formatBytes(value) {
     return `${(value / (GB * 1024)).toFixed(2)} TB`;
 }
 
-function formatMoney(cents) {
-    const value = typeof cents === "number" ? cents : 0;
-    return `${(value / 100).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${getCurrencySymbol()}`;
+function formatMoney(yuan) {
+    // 接口返回的是「元」（后端已除以 100），保存时才乘回分。
+    const value = typeof yuan === "number" ? yuan : 0;
+    return `${value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${getCurrencySymbol()}`;
 }
 
 function formatDateTime(seconds) {
@@ -69,142 +72,6 @@ function fromDatetimeLocal(value) {
 function copyText(text) {
     if (!text) return Promise.resolve();
     return navigator.clipboard?.writeText(String(text)).catch(() => {});
-}
-
-function filterFieldDefs(t) {
-    return [
-        { field: "email", label: t("filter.fields.email"), type: "text", operators: ["contains", "eq"] },
-        { field: "id", label: t("filter.fields.id"), type: "number", operators: ["eq", "gt", "lt"] },
-        { field: "plan_id", label: t("filter.fields.plan_id"), type: "select", operators: ["eq"], useOptions: true },
-        { field: "transfer_enable", label: t("filter.fields.transfer_enable"), type: "number", unit: "GB", operators: ["gt", "lt", "eq"] },
-        { field: "total_used", label: t("filter.fields.total_used"), type: "number", unit: "GB", operators: ["gt", "lt", "eq"] },
-        { field: "online_count", label: t("filter.fields.online_count"), type: "number", operators: ["eq", "gt", "lt"] },
-        { field: "expired_at", label: t("filter.fields.expired_at"), type: "date", operators: ["lt", "gt", "eq"] },
-        { field: "uuid", label: t("filter.fields.uuid"), type: "text", operators: ["eq"] },
-        { field: "token", label: t("filter.fields.token"), type: "text", operators: ["eq"] },
-        {
-            field: "banned", label: t("filter.fields.banned"), type: "select", operators: ["eq"],
-            options: [{ value: "0", label: t("filter.status.normal") }, { value: "1", label: t("filter.status.banned") }],
-        },
-        { field: "remarks", label: t("filter.fields.remark"), type: "text", operators: ["contains", "eq"] },
-        { field: "invite_user.email", label: t("filter.fields.inviter_email"), type: "text", operators: ["contains", "eq"] },
-        { field: "invite_user_id", label: t("filter.fields.invite_user_id"), type: "number", operators: ["eq"] },
-        { field: "is_admin", label: t("filter.fields.is_admin"), type: "boolean", operators: ["eq"] },
-        { field: "is_staff", label: t("filter.fields.is_staff"), type: "boolean", operators: ["eq"] },
-    ];
-}
-
-function conditionsToFilter(conditions, defs) {
-    return conditions
-        .filter((c) => c.field && c.operator && c.value !== "")
-        .map((c) => {
-            const def = defs.find((d) => d.field === c.field);
-            if (c.operator === "contains") return { id: c.field, value: c.value };
-            let value = c.value;
-            if (def?.type === "date") value = Math.floor(new Date(value).getTime() / 1000);
-            if (def?.type === "boolean") value = value ? 1 : 0;
-            if (def?.type === "number" && def.unit === "GB") value = Math.round(Number(value) * GB);
-            return { id: c.field, value: `${c.operator}:${value}` };
-        });
-}
-
-function AdvancedFilterDialog({ open, onOpenChange, conditions, onApply, planOptions, t }) {
-    const defs = useMemo(() => filterFieldDefs(t), [t]);
-    const [draft, setDraft] = useState(conditions);
-
-    useEffect(() => {
-        if (open) setDraft(conditions);
-    }, [open, conditions]);
-
-    const updateRow = (index, patch) => {
-        setDraft((prev) => {
-            const next = [...prev];
-            next[index] = { ...next[index], ...patch };
-            return next;
-        });
-    };
-
-    const setField = (index, field) => {
-        const def = defs.find((d) => d.field === field);
-        updateRow(index, { field, operator: def?.operators?.[0] || "", value: def?.type === "boolean" ? false : "" });
-    };
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange} className="sm:max-w-2xl">
-            <div className="max-h-[90vh] overflow-y-auto p-6">
-                <h3 className="text-lg font-semibold">{t("filter.sheet.title")}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{t("filter.sheet.description")}</p>
-
-                <div className="mt-4 flex items-center justify-between">
-                    <h4 className="text-sm font-medium">{t("filter.sheet.conditions")}</h4>
-                    <Button variant="outline" size="sm" onClick={() => setDraft((prev) => [...prev, { field: "", operator: "", value: "" }])}>
-                        {t("filter.sheet.add")}
-                    </Button>
-                </div>
-
-                <div className="mt-3 space-y-3">
-                    {draft.map((cond, index) => {
-                        const def = defs.find((d) => d.field === cond.field);
-                        return (
-                            <div key={index} className="space-y-2 rounded-lg border p-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-muted-foreground">{t("filter.sheet.condition", { number: index + 1 })}</span>
-                                    <Button variant="ghost" size="sm" onClick={() => setDraft((prev) => prev.filter((_, i) => i !== index))}>✕</Button>
-                                </div>
-                                <Select value={cond.field} onValueChange={(v) => setField(index, v)}>
-                                    <SelectTrigger><SelectValue placeholder={t("filter.sheet.field")} /></SelectTrigger>
-                                    <SelectContent>
-                                        {defs.map((d) => <SelectItem key={d.field} value={d.field}>{d.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                {cond.field && (
-                                    <Select value={cond.operator} onValueChange={(v) => updateRow(index, { operator: v })}>
-                                        <SelectTrigger><SelectValue placeholder={t("filter.sheet.operator")} /></SelectTrigger>
-                                        <SelectContent>
-                                            {def?.operators?.map((op) => <SelectItem key={op} value={op}>{t(`filter.operators.${op}`)}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                                {cond.field && cond.operator && def?.type === "text" && (
-                                    <Input value={cond.value} onChange={(e) => updateRow(index, { value: e.target.value })} placeholder={t("filter.sheet.value")} />
-                                )}
-                                {cond.field && cond.operator && def?.type === "number" && (
-                                    <div className="flex items-center gap-2">
-                                        <Input type="number" value={cond.value} onChange={(e) => updateRow(index, { value: e.target.value })} placeholder={t("filter.sheet.value_number", { unit: def.unit || "" })} />
-                                        {def.unit && <span className="text-sm text-muted-foreground">{def.unit}</span>}
-                                    </div>
-                                )}
-                                {cond.field && cond.operator && def?.type === "date" && (
-                                    <Input type="date" value={cond.value} onChange={(e) => updateRow(index, { value: e.target.value })} />
-                                )}
-                                {cond.field && cond.operator && def?.type === "select" && (
-                                    <Select value={String(cond.value ?? "")} onValueChange={(v) => updateRow(index, { value: v })}>
-                                        <SelectTrigger><SelectValue placeholder={t("filter.sheet.value")} /></SelectTrigger>
-                                        <SelectContent>
-                                            {(def.useOptions ? planOptions : def.options || []).map((opt) => (
-                                                <SelectItem key={String(opt.value)} value={String(opt.value)}>{opt.label}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                                {cond.field && cond.operator && def?.type === "boolean" && (
-                                    <div className="flex items-center gap-2">
-                                        <Switch checked={Boolean(cond.value)} onCheckedChange={(v) => updateRow(index, { value: v })} />
-                                        <span className="text-sm">{cond.value ? t("filter.boolean.true") : t("filter.boolean.false")}</span>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-
-                <div className="mt-6 flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => { setDraft([]); onApply([]); onOpenChange(false); }}>{t("filter.sheet.reset")}</Button>
-                    <Button onClick={() => { onApply(draft.filter((c) => c.field && c.operator && (c.value !== "" || typeof c.value === "boolean"))); onOpenChange(false); }}>{t("filter.sheet.apply")}</Button>
-                </div>
-            </div>
-        </Dialog>
-    );
 }
 
 function SendMailDialog({ open, onOpenChange, hasSelection, selectedCount, hasFilter, onSend, t }) {
@@ -486,8 +353,8 @@ function userToEditForm(user) {
         email: user.email || "",
         invite_user_email: user.invite_user?.email || "",
         password: "",
-        balance: String((user.balance || 0) / 100),
-        commission_balance: String((user.commission_balance || 0) / 100),
+        balance: String(user.balance || 0),
+        commission_balance: String(user.commission_balance || 0),
         u: user.u ? (user.u / GB).toFixed(3) : "",
         d: user.d ? (user.d / GB).toFixed(3) : "",
         transfer_enable: String((user.transfer_enable || 0) / GB),
@@ -897,7 +764,7 @@ export function UserManagement() {
 
     const [search, setSearch] = useState("");
     const [conditions, setConditions] = useState([]);
-    const [advancedOpen, setAdvancedOpen] = useState(false);
+    const [mode, setMode] = useState("all"); // 条件之间：all 全部满足 / any 满足任一
     const [filtersVersion, setFiltersVersion] = useState(0);
 
     const [plans, setPlans] = useState([]);
@@ -914,13 +781,8 @@ export function UserManagement() {
     const [onlineOpen, setOnlineOpen] = useState(false);
     const [onlineCount, setOnlineCount] = useState(null);
 
-    const defs = useMemo(() => filterFieldDefs(t), [t]);
-
-    const buildFilter = () => {
-        const filter = conditionsToFilter(conditions, defs);
-        if (search.trim()) filter.push({ id: "email", value: search.trim() });
-        return filter;
-    };
+    // 列表、群发邮件、导出、批量封禁都用这一份条件，保证「所见即所操作」。
+    const buildFilter = () => buildUserFilter({ conditions, mode, search });
 
     const load = () => {
         setLoading(true);
@@ -1040,31 +902,27 @@ export function UserManagement() {
             <hr className="my-6" />
 
             <div className="flex flex-col gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                    <Input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && refetch()}
-                        placeholder={t("filter.email_search")}
-                        className="h-9 w-[200px]"
-                    />
-                    <Button variant="outline" size="sm" onClick={refetch}>{t("filter.sheet.apply")}</Button>
-                    <Button variant="outline" size="sm" onClick={() => setAdvancedOpen(true)}>
-                        {t("filter.advanced")}{conditions.length > 0 ? ` (${conditions.length})` : ""}
-                    </Button>
-                    {hasFilter && (
-                        <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setConditions([]); refetch(); }}>
-                            {t("filter.reset")}
-                        </Button>
+                <UserFilterBar
+                    t={t}
+                    search={search}
+                    onSearchChange={setSearch}
+                    onSearch={refetch}
+                    conditions={conditions}
+                    mode={mode}
+                    onChange={({ conditions: next, mode: nextMode }) => { setConditions(next); setMode(nextMode); refetch(); }}
+                    onReset={() => { setSearch(""); setConditions([]); setMode("all"); refetch(); }}
+                    planOptions={planOptions}
+                    currency={getCurrencySymbol()}
+                    actions={(
+                        <>
+                            <Button variant="outline" size="sm" onClick={() => setOnlineOpen(true)}>
+                                {t("online.button")}{onlineCount != null ? ` (${onlineCount})` : ""}
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={load}>↻</Button>
+                            <Button size="sm" onClick={() => setGenerateOpen(true)}>{t("generate.button")}</Button>
+                        </>
                     )}
-                    <div className="ml-auto flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setOnlineOpen(true)}>
-                            {t("online.button")}{onlineCount != null ? ` (${onlineCount})` : ""}
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={load}>↻</Button>
-                        <Button size="sm" onClick={() => setGenerateOpen(true)}>{t("generate.button")}</Button>
-                    </div>
-                </div>
+                />
 
                 <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/20 px-3 py-2">
                     <span className="text-xs font-medium text-muted-foreground">{t("actions.title")}{hasSelection ? ` (${selectedIds.size})` : ""}</span>
@@ -1091,14 +949,17 @@ export function UserManagement() {
                             <TableHead>{t("columns.total_traffic")}</TableHead>
                             <TableHead>{t("columns.expire_time")}</TableHead>
                             <TableHead>{t("columns.balance")}</TableHead>
+                            <TableHead>{t("columns.invite_code")}</TableHead>
+                            <TableHead>{t("columns.inviter")}</TableHead>
+                            <TableHead>{t("columns.register_time")}</TableHead>
                             <TableHead className="w-56 text-right">{t("columns.actions")}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            <TableEmpty colSpan={12}>...</TableEmpty>
+                            <TableEmpty colSpan={15}>...</TableEmpty>
                         ) : items.length === 0 ? (
-                            <TableEmpty colSpan={12}>-</TableEmpty>
+                            <TableEmpty colSpan={15}>-</TableEmpty>
                         ) : (
                             items.map((user) => {
                                 const usedPct = user.transfer_enable > 0 ? Math.min((user.total_used / user.transfer_enable) * 100, 100) : 0;
@@ -1115,7 +976,9 @@ export function UserManagement() {
                                                 <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => copyText(user.email)}>⧉</button>
                                             </div>
                                         </TableCell>
-                                        <TableCell>{user.online_count ?? 0} / {user.device_limit == null ? "∞" : user.device_limit}</TableCell>
+                                        <TableCell className={user.device_limit != null && (user.online_count ?? 0) > user.device_limit ? "font-medium text-destructive" : undefined}>
+                                            {user.online_count ?? 0} / {user.device_limit == null ? "∞" : user.device_limit}
+                                        </TableCell>
                                         <TableCell>
                                             <Badge className={user.banned ? "bg-destructive/15 text-destructive" : "bg-emerald-500/15 text-emerald-600"}>
                                                 {t(user.banned ? "columns.status_text.banned" : "columns.status_text.normal")}
@@ -1141,8 +1004,29 @@ export function UserManagement() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell>{formatMoney(user.balance)}</TableCell>
+                                        <TableCell>
+                                            {user.codes?.length ? (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {user.codes.map((c) => (
+                                                        <button
+                                                            key={c.id}
+                                                            type="button"
+                                                            title={c.code}
+                                                            className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs hover:bg-muted/70"
+                                                            onClick={() => copyText(c.code)}
+                                                        >
+                                                            {c.code}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span className="text-muted-foreground">-</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>{user.invite_user?.email || "-"}</TableCell>
+                                        <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateTime(user.created_at)}</TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex flex-wrap justify-end gap-1.5">
+                                            <div className="ml-auto flex w-[300px] flex-wrap justify-end gap-1.5">
                                                 <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => { setEditingUser(user); setEditOpen(true); }}>{t("columns.actions_menu.edit")}</Button>
                                                 <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => copyText(user.subscribe_url).then(() => {})}>{t("columns.actions_menu.copy_url")}</Button>
                                                 <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => handleResetSecret(user)}>{t("columns.actions_menu.reset_secret")}</Button>
@@ -1167,14 +1051,6 @@ export function UserManagement() {
                 </div>
             )}
 
-            <AdvancedFilterDialog
-                open={advancedOpen}
-                onOpenChange={setAdvancedOpen}
-                conditions={conditions}
-                onApply={(next) => { setConditions(next); refetch(); }}
-                planOptions={planOptions}
-                t={t}
-            />
             <SendMailDialog
                 open={sendMailOpen}
                 onOpenChange={setSendMailOpen}

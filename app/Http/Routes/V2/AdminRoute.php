@@ -96,6 +96,12 @@ class AdminRoute
                 $router->post('/copy', [ManageController::class, 'copy']);
                 $router->post('/sort', [ManageController::class, 'sort']);
                 $router->post('/parseNodes', [ManageController::class, 'parseNodes']);
+                $router->get('/importSubscriptions', [ManageController::class, 'getImportSubscriptions']);
+                $router->post('/importSubscriptions', [ManageController::class, 'saveImportSubscriptions']);
+                $router->get('/pluginSubscription', [ManageController::class, 'pluginSubscription']);
+                $router->get('/pluginDoctor', [ManageController::class, 'pluginDoctor']);
+                $router->get('/pluginImport', [ManageController::class, 'pluginImport']);
+                $router->get('/pluginSetup', [ManageController::class, 'pluginSetup']);
                 $router->post('/batchSave', [ManageController::class, 'batchSave']);
                 $router->post('/batchImport', [ManageController::class, 'batchImport']);
                 $router->post('/batchDelete', [ManageController::class, 'batchDelete']);

@@ -152,6 +152,7 @@ class ConfigController extends Controller
                 'discover_prompt_body' => admin_setting('discover_prompt_body'),
                 'discover_prompt_button_text' => admin_setting('discover_prompt_button_text'),
                 'discover_prompt_cancel_text' => admin_setting('discover_prompt_cancel_text'),
+                'discover_nav_page_url' => admin_setting('discover_nav_page_url'),
             ],
             'anti_loss' => [
                 'anti_loss_qr_data' => admin_setting('anti_loss_qr_data', ''),

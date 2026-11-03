@@ -10,7 +10,7 @@ export function Table({ className, ...props }) {
 }
 
 export function TableHeader({ className, ...props }) {
-    return <thead className={classNames("[&_tr]:border-b bg-muted/50", className)} {...props} />;
+    return <thead className={classNames("[&_tr]:border-b bg-muted/40", className)} {...props} />;
 }
 
 export function TableBody({ className, ...props }) {
@@ -21,7 +21,7 @@ export function TableRow({ className, ...props }) {
     return (
         <tr
             className={classNames(
-                "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+                "border-b border-border/60 transition-colors hover:bg-muted/40 data-[state=selected]:bg-muted/60",
                 className,
             )}
             {...props}
@@ -33,7 +33,7 @@ export function TableHead({ className, ...props }) {
     return (
         <th
             className={classNames(
-                "h-10 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+                "h-11 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap [&:has([role=checkbox])]:pr-0",
                 className,
             )}
             {...props}
@@ -44,7 +44,7 @@ export function TableHead({ className, ...props }) {
 export function TableCell({ className, ...props }) {
     return (
         <td
-            className={classNames("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
+            className={classNames("px-4 py-3 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0", className)}
             {...props}
         />
     );

@@ -5,3 +5,5 @@
 @import "./components/settings.css";
 @import "./layouts/auth.css";
 @import "./layouts/shell.css";
+@import "./components/utilities-extra.css";
+@import "./theme/letsvpn.css";

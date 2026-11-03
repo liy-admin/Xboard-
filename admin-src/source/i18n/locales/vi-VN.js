@@ -2,7 +2,7 @@ window.XBOARD_TRANSLATIONS = window.XBOARD_TRANSLATIONS || {};
 window.XBOARD_TRANSLATIONS['vi-VN'] = {
   "theme": {
     "title": "Cấu hình giao diện",
-    "description": "Cấu hình giao diện, bao gồm màu sắc, kích thước phông chữ, v.v. Nếu bạn triển khai Xboard với frontend và backend tách biệt, cấu hình giao diện sẽ không có hiệu lực.",
+    "description": "Cấu hình giao diện, bao gồm màu sắc, kích thước phông chữ, v.v. Nếu bạn triển khai Lets VPN với frontend và backend tách biệt, cấu hình giao diện sẽ không có hiệu lực.",
     "upload": {
       "button": "Tải lên giao diện",
       "title": "Tải lên giao diện",
@@ -43,6 +43,33 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
     }
   },
   "machine": {
+    "quickNode": {
+      "needProtocol": "Hãy chọn ít nhất một giao thức",
+      "protocols": "Giao thức (chọn nhiều)",
+      "protocolsHint": "Nếu một giao thức không kết nối được, hãy thử giao thức khác: UDP có thể hoạt động khi TCP bị chặn và ngược lại. Cổng để trống sẽ được tự động cấp. AnyTLS và TUIC cần kernel sing-box (Xray không hỗ trợ).",
+      "nameHint": "Khi chọn nhiều giao thức, tên giao thức được thêm vào tên node.",
+      "button": "One-click node",
+      "title": "Tạo node một chạm",
+      "description": "Chọn một hoặc nhiều giao thức. Bảng điều khiển tạo khoá và cấu hình chứng chỉ rồi gắn node vào máy chủ này; node agent tự động tải và khởi động. Có thể sửa sau trong Quản lý node.",
+      "groups": "Groups",
+      "noGroups": "No groups yet. Create one in group management first.",
+      "needGroup": "Select at least one group",
+      "host": "Node address",
+      "hostHint": "Defaults to the IP this server last contacted the panel from. Change it if the server is behind NAT or you want a domain.",
+      "hostMissing": "This server has not contacted the panel yet. Enter its public IP or domain.",
+      "port": "Port",
+      "name": "Node name (optional)",
+      "sni": "Trang đích",
+      "sniHint": "Trang web mà Reality mô phỏng (cần hỗ trợ TLS 1.3); cũng là tên miền của chứng chỉ tự ký cho Hysteria2, TUIC và AnyTLS.",
+      "show": "Visible to users",
+      "submit": "Create",
+      "creating": "Creating…",
+      "cancel": "Cancel",
+      "close": "Done",
+      "created": "Created node #{{id}} ({{host}}:{{port}})",
+      "createdHint": "Node agent tự khởi động: trong vài giây qua WebSocket, nếu không thì khoảng một phút. Hãy mở các cổng này trên tường lửa máy chủ và nhóm bảo mật đám mây; Hysteria2 và TUIC cần UDP.",
+      "lastIp": "Last IP"
+    },
     "title": "Quản lý máy chủ",
     "description": "Xem trạng thái máy chủ, tải trọng và các node được lưu trữ, cũng như thực hiện các thao tác với node từ chế độ xem máy chủ.",
     "columns": {
@@ -172,6 +199,37 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
       "unbindNode": "Hủy liên kết",
       "unbindSuccess": "«{{name}}» đã hủy liên kết",
       "unbindFailed": "Lỗi hủy liên kết",
+      "testNode": "Kiểm tra",
+      "testAll": "Kiểm tra tất cả",
+      "testing": "Đang kiểm tra...",
+      "testOk": "Hoạt động",
+      "testFail": "Không hoạt động",
+      "testUntestable": "Không thể kiểm tra",
+      "testLatency": "độ trễ {{ms}}ms",
+      "testExit": "IP ra",
+      "testRealityHint": "Node Reality không hoạt động thường do trang đích không tương thích với kernel (ví dụ www.microsoft.com); hãy sửa node, đổi trang đích sang www.apple.com rồi kiểm tra lại",
+      "testTcpOnly": "chỉ kiểm tra cổng (chế độ TCP)",
+      "testHint": "Kiểm tra gửi yêu cầu thật qua node từ máy chủ bảng điều khiển. Đạt nghĩa là node cấu hình đúng, không đảm bảo mọi mạng người dùng đều kết nối được (ví dụ IP bị chặn).",
+      "exportLinks": "Xuất liên kết",
+      "exportTitle": "Xuất liên kết chia sẻ",
+      "exportDescription": "Nhập trực tiếp vào v2rayN và các ứng dụng tương tự (nhập từ clipboard). Mặc định mỗi node dùng người dùng hợp lệ đầu tiên trong nhóm quyền; cũng có thể nhập email người dùng.",
+      "exportEmailPlaceholder": "Email người dùng (tuỳ chọn)",
+      "exportGenerate": "Tạo",
+      "exportUser": "Người dùng",
+      "exportDisabled": "Chưa kích hoạt",
+      "copy": "Sao chép",
+      "copied": "Đã sao chép",
+      "copyAll": "Sao chép tất cả ({{count}})",
+      "download": "Tải .txt",
+      "editNode": "Sửa",
+      "nodeActions": "Thao tác",
+      "nodeMissing": "Không tìm thấy node, có thể đã bị xoá",
+      "toggleShowError": "Không thể chuyển trạng thái hiển thị",
+      "listenPort": "Cổng lắng nghe",
+      "unbindDescription": "«{{name}}» sẽ không còn chạy trên máy chủ này. Node vẫn được giữ lại và có thể liên kết lại trong Quản lý node.",
+      "deleteNodeConfirm": "Xoá node «{{name}}»?",
+      "deleteNodeDescription": "Node bị xoá khỏi bảng điều khiển và inbound tương ứng trên máy chủ sẽ dừng. Không thể hoàn tác.",
+      "deleteNodeFailed": "Xoá node thất bại",
       "cancel": "Hủy"
     },
     "messages": {
@@ -426,10 +484,16 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
     "userManagement": "Người dùng",
     "trafficResetLogs": "Nhật ký Reset Traffic",
     "ticketManagement": "Ticket hỗ trợ",
+    "deviceManagement": "Quản lý thiết bị",
     "pluginApps": "Ứng dụng Plugin"
   },
   "auth": {
     "signIn": {
+      "heroTitle": "Kết nối an toàn, ổn định và nhanh",
+      "heroSubtitle": "Quản lý node, người dùng, đơn hàng và gói đăng ký tại một nơi.",
+      "heroPoint1": "Điều phối nhiều node với trạng thái trực tiếp",
+      "heroPoint2": "Gói, đơn hàng và thanh toán tập trung",
+      "heroPoint3": "Tự động nhắc lưu lượng và hết hạn",
       "title": "Đăng nhập",
       "description": "Nhập email và mật khẩu để đăng nhập",
       "email": "Email",
@@ -519,6 +583,37 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
     }
   },
   "order": {
+    "cleanup": {
+      "title": "Tự động dọn đơn hàng đã hủy",
+      "description": "Chỉ xóa đơn đã hủy quá số ngày đã đặt; các trạng thái khác không bị ảnh hưởng.",
+      "enable": "Bật tự động dọn",
+      "days": "Giữ lại (ngày)",
+      "daysInvalid": "Số ngày phải là số nguyên từ {{min}} đến {{max}}",
+      "save": "Lưu",
+      "saved": "Đã lưu",
+      "saveFailed": "Lưu thất bại",
+      "loadFailed": "Không đọc được cài đặt dọn dẹp",
+      "run": "Dọn ngay",
+      "unsavedHint": "Hãy lưu cài đặt trước",
+      "nextAuto": "Tự động chạy mỗi ngày lúc {{time}}",
+      "autoOff": "Chưa bật tự động dọn; chỉ có thể dọn thủ công",
+      "pending": "Có {{count}} đơn đã hủy quá {{days}} ngày đang chờ dọn",
+      "last": "Lần dọn gần nhất: {{time}} ({{source}}), đã xóa {{count}} đơn",
+      "lastNone": "Chưa từng dọn",
+      "sourceDaily": "tự động",
+      "sourceManual": "thủ công",
+      "truncated": "Số lượng lớn; phần còn lại sẽ tiếp tục ở lần sau",
+      "runConfirmTitle": "Dọn đơn đã hủy ngay bây giờ?",
+      "runConfirmDesc": "Sẽ xóa vĩnh viễn {{count}} đơn đã hủy quá {{days}} ngày và không thể khôi phục.",
+      "runConfirmBtn": "Xác nhận xóa",
+      "runDone": "Đã xóa {{count}} đơn",
+      "runFailed": "Dọn dẹp thất bại"
+    },
+    "userFilter": {
+      "active": "Đang xem đơn hàng của người dùng #{{id}}",
+      "total": "Tổng {{count}}",
+      "clear": "Hiện tất cả đơn hàng"
+    },
     "title": "Quản lý Đơn hàng",
     "description": "Tại đây bạn có thể xem đơn hàng của người dùng, bao gồm gán, xem, xóa và các thao tác khác.",
     "table": {
@@ -531,6 +626,11 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "status": "Trạng thái đơn hàng",
         "commission": "Hoa hồng",
         "commissionStatus": "Trạng thái hoa hồng",
+        "payment": "Phương thức thanh toán",
+        "payer": "Người thanh toán",
+        "paymentBalance": "Số dư",
+        "paymentManual": "Xác nhận thủ công",
+        "payerHint": "Nhấn để xem tất cả đơn của người dùng này",
         "createdAt": "Ngày tạo"
       }
     },
@@ -541,6 +641,7 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
       "RESET_FLOW": "Reset Traffic"
     },
     "period": {
+      "week_price": "Hàng tuần",
       "month_price": "1 Tháng",
       "quarter_price": "3 Tháng",
       "half_year_price": "6 Tháng",
@@ -772,7 +873,7 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
     "description": "Cài đặt thông số kết nối và đồng bộ node, bao gồm khóa kết nối, khoảng thời gian polling, cân bằng tải và các tham số nâng cao khác.",
     "server_token": {
       "title": "Khóa kết nối",
-      "description": "Khóa dùng để giao tiếp giữa Xboard và các node nhằm ngăn chặn truy cập trái phép.",
+      "description": "Khóa dùng để giao tiếp giữa Lets VPN và các node nhằm ngăn chặn truy cập trái phép.",
       "placeholder": "Vui lòng nhập khóa kết nối"
     },
     "server_pull_interval": {
@@ -799,6 +900,13 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "value": "{{synced}} / {{reported}} đã đồng bộ",
         "hint": "Số người dùng đã ở bộ node mới nhất / số người dùng chạy client có báo cáo (tổng {{total}} tài khoản). Phần còn lại sẽ tự đồng bộ ở lần mở ứng dụng hoặc kết nối kế tiếp.",
         "last_change": "Lần thay đổi node gần nhất: {{time}}"
+      },
+      "warnings": {
+        "title": "Lỗi cấu hình: một số người dùng không nhận được nút",
+        "plans": "Các gói sau chưa có nhóm truy cập (số người dùng còn hạn trong ngoặc): {{names}}.",
+        "users": "{{count}} người dùng có gói còn hạn nhưng không có nhóm truy cập.",
+        "fix": "Cách sửa: vào Quản lý gói, sửa gói, chọn nhóm và bật \"Cập nhật bắt buộc cho người dùng\".",
+        "push_off": "Đẩy tới ứng dụng đang tắt: thay đổi nút và gói không được gửi ngay tới ứng dụng; ứng dụng sẽ cập nhật khi mở danh sách nút, khi kết nối hoặc sau 24 giờ. Bật đẩy tới ứng dụng trong Cài đặt nút."
       },
       "title": "Quản lý Node",
       "description": "Quản lý tất cả các node, bao gồm thêm, xóa, sửa và các thao tác khác.",
@@ -926,7 +1034,8 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
       "status": {
         "0": "Chưa chạy",
         "1": "Không sử dụng hoặc Lỗi",
-        "2": "Hoạt động bình thường"
+        "2": "Hoạt động bình thường",
+        "3": "Kết nối được qua thăm dò (không có agent)"
       },
       "childNode": "Node con",
       "actions_dropdown": {
@@ -968,6 +1077,9 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "on": "bật",
         "off": "tắt",
         "disabled": "Đã tắt đo tốc độ",
+        "stop": "Dừng",
+        "stopping": "Đang dừng (sau khi xong nút hiện tại)…",
+        "stopped": "Lần đo trước đã bị dừng thủ công (đã đo {{done}}/{{total}})",
         "mode": {
           "singbox": "sing-box thực",
           "tcp": "Bắt tay TCP"
@@ -1855,6 +1967,101 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "singbox_hint": "Khi bật tự động tải, panel sẽ tự tải và lưu sing-box từ bản phát hành chính thức — không cần cài thủ công. Panel khởi tạo một kết nối sing-box cho mỗi node và yêu cầu IP echo, khá chậm — nên nới rộng chu kỳ đo.",
         "singbox_unavailable": "Không phát hiện sing-box khả dụng; sẽ quay về chế độ TCP."
       },
+      "client_routing": {
+        "title": "Định tuyến client (chế độ Tốc độ của app)",
+        "description": "Quyết định trang nào đi thẳng, trang nào qua proxy ở chế độ Tốc độ. App tải cấu hình này trước mỗi lần kết nối; người dùng kết nối lại để áp dụng.",
+        "flow_lan": "Địa chỉ LAN (192.168.x.x…) → đi thẳng",
+        "flow_custom": "Quy tắc tùy chỉnh ở ③ bên dưới (theo thứ tự, khớp trước có hiệu lực)",
+        "flow_cn": "Trang / IP Trung Quốc → đi thẳng (danh sách từ ①, tên miền phân giải bằng DNS ở ②)",
+        "flow_rest": "Mọi lưu lượng khác → proxy",
+        "flow_safe": "Ở chế độ An toàn (proxy toàn cục) chỉ bước 2 và 4 áp dụng, quy tắc \"đi thẳng\" bị bỏ qua.",
+        "source_title": "Nguồn danh sách đi thẳng Trung Quốc",
+        "source_help": "Nơi tải danh sách \"trang / IP Trung Quốc\" ở bước 3; cũng dùng cho geosite:xxx / geoip:xxx trong quy tắc.",
+        "source_loyalsoldier": "Loyalsoldier (khuyên dùng)",
+        "source_loyalsoldier_desc": "Cùng dữ liệu với v2rayN, cập nhật hằng ngày, đầy đủ hơn.",
+        "source_builtin": "hiddify-geo tích hợp",
+        "source_builtin_desc": "Dữ liệu mặc định ban đầu của app.",
+        "source_custom": "URL tùy chỉnh",
+        "source_custom_desc": "Mirror riêng. {type} = geosite/geoip, {name} = tên rule-set, ví dụ geosite-cn.",
+        "source_preview": "URL danh sách tên miền Trung Quốc",
+        "rules_title": "Quy tắc tùy chỉnh (tùy chọn)",
+        "rules_desc": "Ngoại lệ: cho một số tên miền Trung Quốc qua proxy (vd googleapis.cn) hoặc cho địa chỉ nước ngoài đi thẳng. Tắt nếu không cần.",
+        "enable": "Bật quy tắc tùy chỉnh",
+        "disabled_hint": "Đã tắt: app chỉ dùng bước 1, 3, 4 ở trên.",
+        "add": "Thêm quy tắc",
+        "edit": "Sửa",
+        "delete": "Xóa",
+        "delete_confirm": "Xóa quy tắc này?",
+        "save": "Lưu",
+        "cancel": "Hủy",
+        "saved": "Đã lưu",
+        "preset": "Nhập quy tắc thường dùng v2rayN \"Bỏ qua đại lục\"",
+        "json_toggle": "Nâng cao: sửa JSON",
+        "empty": "Chưa có quy tắc. Bấm \"Thêm quy tắc\" hoặc nhập quy tắc v2rayN.",
+        "col_name": "Tên",
+        "col_action": "Hành động",
+        "col_match": "Điều kiện (mỗi dòng một mục)",
+        "name_placeholder": "Ví dụ: OpenAI qua proxy",
+        "out_proxy": "Proxy",
+        "out_direct": "Đi thẳng",
+        "out_block": "Chặn",
+        "out_proxy_long": "Qua proxy",
+        "out_direct_long": "Đi thẳng (không proxy)",
+        "out_block_long": "Chặn (cấm truy cập)",
+        "fmt_domain": "example.com — tên miền và mọi tên miền con",
+        "fmt_full": "full:www.example.com — chỉ đúng tên miền này",
+        "fmt_keyword": "keyword:openai — tên miền chứa từ khóa",
+        "fmt_geosite": "geosite:netflix / geoip:telegram — danh sách có sẵn từ nguồn ①",
+        "fmt_ip": "8.8.8.8 hoặc 10.0.0.0/8 — IP hoặc dải IP",
+        "need_match": "Nhập ít nhất một dòng điều kiện",
+        "more": "… {{count}} mục",
+        "extra_kept": "Quy tắc này còn các điều kiện nâng cao sau, sẽ được giữ khi lưu",
+        "source_active": "Đang dùng",
+        "source_unsaved": "Chưa lưu",
+        "source_custom_hint": "Chỉ có hiệu lực sau khi nhập URL và bấm Lưu; trước đó nguồn \"Đang dùng\" vẫn được áp dụng.",
+        "source_not_persisted": "Giá trị đọc lại khác giá trị đã gửi; hãy tải lại trang và thử lại.",
+        "dns_title": "DNS đi thẳng (chế độ Tốc độ)",
+        "dns_help": "Phân giải trang Trung Quốc và tên miền khớp quy tắc đi thẳng. Hãy dùng DNS Trung Quốc: DNS nước ngoài như 1.1.1.1 sẽ trả về máy chủ ở nước ngoài (vd Tencent ra Hồng Kông), làm đi thẳng chậm hơn. Không dùng ở chế độ An toàn.",
+        "dns_ali": "Alibaba DNS (khuyên dùng)",
+        "dns_tencent": "Tencent DNS",
+        "dns_app": "Cài đặt trong app",
+        "dns_app_desc": "Không ghi đè; dùng DNS đi thẳng trong trang cài đặt của app.",
+        "dns_custom_desc": "IP, hoặc địa chỉ DNS mã hóa như https:// hoặc tls://.",
+        "invalid_json": "JSON không hợp lệ: "
+      },
+      "countries": {
+        "title": "Quốc gia khả dụng",
+        "description": "Người dùng chưa có gói vẫn thấy danh sách này (chỉ gồm quốc gia và số nút khả dụng, không có địa chỉ nút). Tự động cập nhật mỗi ngày một lần, hoặc cập nhật thủ công.",
+        "button": "Cập nhật ngay",
+        "refreshing": "Đang kiểm tra và cập nhật, có thể mất vài phút…",
+        "updated": "Cập nhật lần cuối",
+        "count": "quốc gia khả dụng",
+        "source_daily": "tự động hằng ngày",
+        "source_manual": "thủ công",
+        "source_lazy": "tạo lần đầu",
+        "kept": "Lần này không có nút nào khả dụng (có thể lỗi kiểm tra). Đã giữ danh sách trước đó.",
+        "empty": "Chưa có quốc gia khả dụng (nút chưa được kiểm tra hoặc đều không khả dụng).",
+        "unknown": "nút khả dụng không xác định được quốc gia nên không được liệt kê.",
+        "auto": "Tự động cập nhật lúc {time} mỗi ngày",
+        "nodes": "nút",
+        "never": "Chưa tạo",
+        "time_label": "Giờ cập nhật hằng ngày",
+        "time_desc": "Múi giờ của máy chủ. Tự động lưu, không cần khởi động lại.",
+        "tags_label": "Nhãn quốc gia",
+        "tags_placeholder": "HK:Đề xuất,JP:Nhanh",
+        "tags_desc": "Nhãn hiển thị trong danh sách quốc gia của ứng dụng. Định dạng: mã:văn bản, phân tách bằng dấu phẩy; chỉ ghi mã sẽ hiển thị 推荐. Để trống nếu không dùng. Tự động lưu và áp dụng ngay."
+      },
+      "singbox_download": {
+        "title": "Tải sing-box trực tuyến",
+        "description": "Tải từ trang phát hành GitHub chính thức và cài vào máy chủ của bảng điều khiển. Tệp được kiểm tra sau khi tải. Không cần đăng nhập vào máy chủ.",
+        "button": "Tải trực tuyến",
+        "button_retry": "Tải lại",
+        "downloading": "Đang tải…",
+        "done": "Tải xong, sing-box đã sẵn sàng",
+        "failed": "Tải thất bại",
+        "version": "Phiên bản",
+        "path": "Vị trí cài đặt"
+      },
       "node_probe_singbox_auto_download": {
         "title": "Tự động tải sing-box",
         "description": "Khi máy chủ panel chưa có sing-box, tự tải, giải nén và lưu từ bản phát hành GitHub chính thức theo OS/kiến trúc của máy chủ — không cần cài thủ công."
@@ -2216,7 +2423,7 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
       },
       "surplus_enable": {
         "title": "Chế độ bù trừ",
-        "description": "Khi đổi gói, số dư từ gói cũ sẽ được tính vào gói mới."
+        "description": "Khi đổi từ gói theo thời hạn, thời gian còn lại luôn được quy đổi sang gói mới theo đơn giá mỗi ngày và cộng thêm, không phụ thuộc công tắc này. Công tắc chỉ áp dụng cho gói một lần (không có hạn): khi bật, giá trị lưu lượng còn lại được trừ vào đơn mới."
       },
       "new_order_event": {
         "title": "Sự kiện khi mua mới",
@@ -2313,7 +2520,10 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
           "group": {
             "label": "Nhóm truy cập",
             "placeholder": "Chọn nhóm",
-            "add": "Thêm"
+            "add": "Thêm",
+            "missing_badge": "Chưa có nhóm",
+            "missing_form": "Chưa chọn nhóm truy cập: người mua gói này sẽ không nhận được nút nào. Khi sửa gói đang dùng, hãy bật thêm \"Cập nhật bắt buộc cho người dùng\" bên dưới.",
+            "missing_banner": "Các gói sau chưa có nhóm truy cập nên người dùng không nhận được nút nào: {{names}}. Hãy sửa gói, chọn nhóm và bật \"Cập nhật bắt buộc cho người dùng\"."
           },
           "transfer": {
             "label": "Traffic",
@@ -2423,7 +2633,7 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
       },
       "email_from_name": {
         "title": "Tên người gửi",
-        "description": "Vd: 'Quản trị Xboard'"
+        "description": "Vd: 'Quản trị Lets VPN'"
       },
       "email_template": {
         "title": "Mẫu Email",
@@ -2635,7 +2845,74 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
     "orderManagement": "Đơn hàng",
     "couponManagement": "Mã Giảm Giá",
     "userManagement": "Người Dùng",
-    "ticketManagement": "Ticket"
+    "ticketManagement": "Ticket",
+    "deviceManagement": "Quản lý thiết bị"
+  },
+  "device": {
+    "title": "Quản lý thiết bị",
+    "description": "Xem tài khoản đang liên kết, trạng thái dùng thử và các tài khoản đã đăng ký trên từng thiết bị. Mỗi thiết bị chỉ nhận dùng thử một lần; có thể đặt lại hoặc đánh dấu tại đây.",
+    "search_placeholder": "ID thiết bị / mã 9 số / email / ID người dùng",
+    "filter": {
+      "all": "Tất cả thiết bị",
+      "claimed": "Đã nhận dùng thử",
+      "unclaimed": "Chưa nhận dùng thử"
+    },
+    "columns": {
+      "device_id": "ID thiết bị",
+      "display_code": "Mã thiết bị",
+      "current_user": "Tài khoản liên kết",
+      "claimed_trial": "Dùng thử",
+      "accounts": "Tài khoản",
+      "trials": "Lượt nhận",
+      "updated_at": "Cập nhật",
+      "created_at": "Lần đầu",
+      "actions": "Thao tác"
+    },
+    "status": {
+      "claimed": "Đã nhận",
+      "unclaimed": "Chưa nhận"
+    },
+    "user_banned": "Đã khóa/xóa",
+    "no_user": "Không có",
+    "list": {
+      "empty": "Chưa có thiết bị"
+    },
+    "actions": {
+      "search": "Tìm kiếm",
+      "view": "Chi tiết",
+      "reset_trial": "Đặt lại dùng thử",
+      "mark_claimed": "Đánh dấu đã nhận",
+      "confirm": "Xác nhận",
+      "reset_confirm_title": "Đặt lại dùng thử cho thiết bị này?",
+      "reset_confirm_description": "Sau khi đặt lại, tài khoản đăng ký tiếp theo (hoặc tài khoản dùng thử thiết bị) trên thiết bị này sẽ được nhận gói dùng thử một lần nữa.",
+      "mark_confirm_title": "Đánh dấu đã nhận dùng thử?",
+      "mark_confirm_description": "Thiết bị này sẽ không còn nhận gói dùng thử khi đăng ký hoặc nhận tài khoản dùng thử."
+    },
+    "detail": {
+      "title": "Chi tiết thiết bị",
+      "accounts": "Tài khoản đăng ký / liên kết trên thiết bị",
+      "trial_logs": "Lịch sử nhận dùng thử",
+      "no_accounts": "Chưa có tài khoản",
+      "no_logs": "Chưa có lịch sử (các lượt nhận trước khi có tính năng này không được ghi lại)",
+      "current": "Đang liên kết",
+      "device_trial_account": "Dùng thử thiết bị",
+      "user_id": "ID người dùng",
+      "email": "Email",
+      "plan": "Gói",
+      "expired_at": "Hết hạn",
+      "created_at": "Đăng ký",
+      "granted_at": "Thời gian nhận",
+      "source": "Nguồn",
+      "trial_expired_at": "Hết hạn dùng thử",
+      "ip": "IP"
+    },
+    "source": {
+      "register": "Đăng ký",
+      "device_trial": "Dùng thử thiết bị"
+    },
+    "messages": {
+      "failed": "Thao tác thất bại"
+    }
   },
   "ticket": {
     "title": "Quản lý Ticket",
@@ -3027,6 +3304,69 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
       "clear": "Xóa bộ lọc",
       "search_placeholder": "Tìm kiếm...",
       "email_search": "Tìm theo email...",
+      "quick": {
+        "all": "Tất cả",
+        "online": "Đang online",
+        "no_plan": "Chưa có gói",
+        "expired": "Đã hết hạn",
+        "expiring": "Hết hạn trong 7 ngày",
+        "banned": "Bị khóa"
+      },
+      "builder": {
+        "add": "Thêm bộ lọc",
+        "title_add": "Thêm điều kiện lọc",
+        "title_edit": "Sửa điều kiện lọc",
+        "field": "Trường",
+        "operator": "Điều kiện",
+        "value": "Giá trị",
+        "from": "Từ",
+        "to": "Đến",
+        "days_label": "Số ngày",
+        "days_placeholder": "Nhập số ngày",
+        "days_unit": "ngày",
+        "text_placeholder": "Nhập nội dung",
+        "pick_plans": "Chọn gói (nhiều lựa chọn)",
+        "no_value_needed": "Điều kiện này không cần giá trị",
+        "preview": "Sẽ lọc: {{text}}",
+        "confirm": "Đồng ý",
+        "cancel": "Hủy",
+        "match": "Khớp",
+        "match_all": "Tất cả",
+        "match_any": "Bất kỳ",
+        "save_view": "Lưu bộ lọc",
+        "view_name": "Tên bộ lọc",
+        "view_placeholder": "Ví dụ: Người dùng trả phí sắp hết hạn tuần này",
+        "views": "Bộ lọc đã lưu",
+        "remove_view": "Xóa bộ lọc này",
+        "remove_condition": "Bỏ điều kiện này",
+        "edit_condition": "Nhấn để sửa",
+        "ops": {
+          "contains": "chứa",
+          "not_contains": "không chứa",
+          "eq": "bằng",
+          "neq": "khác",
+          "starts": "bắt đầu bằng",
+          "ends": "kết thúc bằng",
+          "gt": "lớn hơn",
+          "gte": "ít nhất",
+          "lt": "nhỏ hơn",
+          "lte": "nhiều nhất",
+          "between": "trong khoảng",
+          "on": "vào ngày",
+          "before": "trước",
+          "after": "sau",
+          "within_next": "trong {{n}} ngày tới",
+          "within_last": "trong {{n}} ngày qua",
+          "older_than": "cách đây hơn {{n}} ngày",
+          "past": "đã hết hạn",
+          "future": "chưa hết hạn",
+          "is": "là",
+          "is_not": "không phải",
+          "in": "là một trong",
+          "empty": "trống",
+          "not_empty": "không trống"
+        }
+      },
       "advanced": "Bộ lọc Nâng cao",
       "reset": "Đặt lại bộ lọc",
       "sheet": {
@@ -3057,7 +3397,12 @@ window.XBOARD_TRANSLATIONS['vi-VN'] = {
         "inviter_email": "Email Người mời",
         "invite_user_id": "ID Người mời",
         "is_admin": "Admin",
-        "is_staff": "Nhân viên"
+        "is_staff": "Nhân viên",
+        "created_at": "Ngày đăng ký",
+        "last_login_at": "Đăng nhập gần nhất",
+        "balance": "Số dư",
+        "commission_balance": "Hoa hồng",
+        "device_limit": "Giới hạn thiết bị"
       },
       "operators": {
         "contains": "Chứa",

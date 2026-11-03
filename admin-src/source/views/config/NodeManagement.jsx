@@ -6,6 +6,7 @@ import {
     getNodeSyncStats,
     probeNodeLatency,
     getNodeProbeStatus,
+    stopNodeProbe,
     dropNode,
     batchDeleteNodes,
     batchUpdateNodes,
@@ -36,7 +37,7 @@ const PROTOCOL_COLOR = {
     vmess: "#CB3180",
     trojan: "#EBB749",
     hysteria: "#5684e6",
-    vless: "#1a1a1a",
+    vless: "#94a3b8", // 原为近黑色，在深色主题下与背景融为一体
     tuic: "#00C853",
     socks: "#2196F3",
     naive: "#9C27B0",
@@ -45,7 +46,8 @@ const PROTOCOL_COLOR = {
     anytls: "#7E57C2",
 };
 
-const STATUS_TONE = { 0: "bg-red-500", 1: "bg-amber-500", 2: "bg-emerald-500" };
+// 3 = 没有 agent 心跳，但面板实测连通（导入的第三方节点）
+const STATUS_TONE = { 0: "bg-red-500", 1: "bg-amber-500", 2: "bg-emerald-500", 3: "bg-sky-500" };
 
 function machineStatus(machine) {
     if (!machine) return "inactive";
@@ -68,19 +70,24 @@ function copyText(text) {
     navigator.clipboard?.writeText(String(text)).catch(() => {});
 }
 
-// 两位 ISO 国家码 -> 旗帜 emoji
-function countryFlagEmoji(cc) {
-    if (!cc || cc.length !== 2 || !/^[A-Za-z]{2}$/.test(cc)) return "🏳️";
-    const base = 0x1f1e6;
-    const up = cc.toUpperCase();
-    return String.fromCodePoint(base + up.charCodeAt(0) - 65, base + up.charCodeAt(1) - 65);
-}
-
 function latencyTone(ms) {
     if (ms == null) return "text-muted-foreground";
     if (ms < 150) return "text-emerald-600 dark:text-emerald-400";
     if (ms < 400) return "text-amber-600 dark:text-amber-400";
     return "text-rose-600 dark:text-rose-400";
+}
+
+// 剩余秒数 -> 倒计时文案（<1h 显示 m:ss，否则 Hh Mm）
+function formatCountdown(sec) {
+    if (sec == null || sec < 0) sec = 0;
+    if (sec >= 3600) {
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        return `${h}h${m}m`;
+    }
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 function timeAgo(ts) {
@@ -99,15 +106,18 @@ function renderLatency(node, t) {
     }
     const cc = node.country_code ? String(node.country_code).toUpperCase() : null;
     return (
-        <div className="flex flex-col gap-0.5 text-xs leading-tight">
+        <div className="flex flex-col items-start gap-0.5 text-xs leading-tight">
             <div className="flex items-center gap-1.5">
-                {cc && <span title={cc}>{countryFlagEmoji(cc)}</span>}
+                {cc && (
+                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-medium tabular-nums">
+                        {cc}
+                    </Badge>
+                )}
                 {node.latency_ms == null ? (
                     <span className="font-medium text-rose-600 dark:text-rose-400">{t("columns.latency.unreachable")}</span>
                 ) : (
-                    <span className={`font-medium ${latencyTone(node.latency_ms)}`}>{node.latency_ms}ms</span>
+                    <span className={`font-mono font-medium ${latencyTone(node.latency_ms)}`}>{node.latency_ms}ms</span>
                 )}
-                {cc && <span className="text-muted-foreground">{cc}</span>}
             </div>
             {node.exit_ip && (
                 <div className="font-mono text-[10px] text-muted-foreground">{t("columns.latency.exit")} {node.exit_ip}</div>
@@ -152,6 +162,28 @@ export function NodeManagement() {
     const [probeStatus, setProbeStatus] = useState(null);
     const probePollRef = useRef(null);
     const probing = !!(probeStatus && probeStatus.running);
+    const [stoppingProbe, setStoppingProbe] = useState(false);
+
+    // 停止测速：当前正在测的节点会测完，之后不再继续（进度轮询照常，停下后自动收起进度条）
+    const stopProbe = async () => {
+        setStoppingProbe(true);
+        try {
+            await stopNodeProbe();
+            const res = await getNodeProbeStatus();
+            setProbeStatus(res?.data || null);
+        } catch {
+            /* 下一次轮询会刷新状态 */
+        } finally {
+            setStoppingProbe(false);
+        }
+    };
+
+    // 秒级心跳，仅用于空闲时「下次测速」倒计时的实时刷新
+    const [nowTs, setNowTs] = useState(() => Math.floor(Date.now() / 1000));
+    useEffect(() => {
+        const id = setInterval(() => setNowTs(Math.floor(Date.now() / 1000)), 1000);
+        return () => clearInterval(id);
+    }, []);
 
     const loadSyncStats = () =>
         getNodeSyncStats()
@@ -286,6 +318,9 @@ export function NodeManagement() {
         setItems((prev) => prev.map((n) => (n.id === node.id ? { ...n, show: checked } : n)));
         try {
             await updateNode({ id: node.id, type: node.type, show: checked ? 1 : 0 });
+            // 「是否下发」是后端按 show + 可达 + 未超流量 + 按国去重实时算出的，
+            // 改完 show 后重新拉取，让下发状态如实刷新（可达的会变「下发中」，不可达的仍是「不下发」）。
+            await load();
         } catch {
             setItems((prev) => prev.map((n) => (n.id === node.id ? { ...n, show: !checked } : n)));
         }
@@ -299,7 +334,14 @@ export function NodeManagement() {
         await load();
     };
 
-    // 轮询测速进度；结束后停止并刷新列表
+    // 测速进行中静默刷新节点列表（不显示加载态），测完一个就能立刻看到它的延迟、出口 IP 和是否下发。
+    const probeTickRef = useRef(0);
+    const refreshNodesSilently = () =>
+        getNodes()
+            .then((res) => setItems(res?.data || []))
+            .catch(() => {});
+
+    // 轮询测速进度；进行中每两次轮询（约 4 秒）刷新一次列表，结束后停止并完整刷新（含覆盖率统计）
     const pollProbe = () =>
         getNodeProbeStatus()
             .then((res) => {
@@ -308,12 +350,16 @@ export function NodeManagement() {
                 if (!s || !s.running) {
                     stopProbePolling();
                     load();
+                    return;
                 }
+                probeTickRef.current += 1;
+                if (probeTickRef.current % 2 === 0) refreshNodesSilently();
             })
             .catch(() => {});
 
     const startProbePolling = () => {
         if (probePollRef.current) return;
+        probeTickRef.current = 0;
         pollProbe();
         probePollRef.current = setInterval(pollProbe, 2000);
     };
@@ -326,6 +372,21 @@ export function NodeManagement() {
     };
 
     useEffect(() => () => stopProbePolling(), []);
+
+    // 空闲时每 30s 轻量刷新一次测速方案 / 下次计划时间，并捕获后台计划任务已开始测速的情况
+    useEffect(() => {
+        if (probing) return;
+        const id = setInterval(() => {
+            getNodeProbeStatus()
+                .then((res) => {
+                    const s = res?.data || null;
+                    setProbeStatus(s);
+                    if (s && s.running) startProbePolling();
+                })
+                .catch(() => {});
+        }, 30000);
+        return () => clearInterval(id);
+    }, [probing]);
 
     // 手动测速：测选中
     const probeSelected = async () => {
@@ -393,6 +454,7 @@ export function NodeManagement() {
                     </div>
                 )}
             </div>
+            <NodeConfigWarnings stats={syncStats} t={t} />
             <hr className="my-6" />
 
             <div className="flex flex-col gap-3">
@@ -441,7 +503,7 @@ export function NodeManagement() {
                     </div>
                 </div>
 
-                {probeStatus && probeStatus.running && (
+                {probeStatus && probeStatus.running ? (
                     <div className="rounded-md border bg-muted/20 px-3 py-2">
                         <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                             <span className="truncate">
@@ -450,8 +512,20 @@ export function NodeManagement() {
                                     : t("toolbar.probe.progress", { done: probeStatus.done || 0, total: probeStatus.total || 0, ok: probeStatus.ok || 0 })}
                                 {probeStatus.current ? ` · ${probeStatus.current}` : ""}
                             </span>
-                            <span className="ml-2 shrink-0 font-medium">
-                                {probeStatus.total ? Math.round(((probeStatus.done || 0) / probeStatus.total) * 100) : 0}%
+                            <span className="ml-2 flex shrink-0 items-center gap-2">
+                                <span className="font-medium">
+                                    {probeStatus.total ? Math.round(((probeStatus.done || 0) / probeStatus.total) * 100) : 0}%
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-6 px-2 text-xs"
+                                    onClick={stopProbe}
+                                    loading={stoppingProbe}
+                                    disabled={stoppingProbe || probeStatus.stopping}
+                                >
+                                    {probeStatus.stopping ? t("toolbar.probe.stopping") : t("toolbar.probe.stop")}
+                                </Button>
                             </span>
                         </div>
                         <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -461,7 +535,40 @@ export function NodeManagement() {
                             />
                         </div>
                     </div>
-                )}
+                ) : probeStatus?.scheme ? (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border bg-muted/20 px-3 py-2 text-xs">
+                        {probeStatus.stopped && (
+                            <span className="text-amber-600">
+                                {t("toolbar.probe.stopped", { done: probeStatus.done || 0, total: probeStatus.total || 0 })}
+                            </span>
+                        )}
+                        {probeStatus.scheme.enabled ? (
+                            <span className="flex items-center gap-1.5">
+                                <span className="text-muted-foreground">{t("toolbar.probe.nextIn")}</span>
+                                <span className="font-mono font-medium tabular-nums text-foreground">
+                                    {probeStatus.scheme.next_run_at
+                                        ? formatCountdown(probeStatus.scheme.next_run_at - nowTs)
+                                        : "--"}
+                                </span>
+                            </span>
+                        ) : (
+                            <span className="font-medium text-amber-600 dark:text-amber-400">{t("toolbar.probe.disabled")}</span>
+                        )}
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                            <span>{t("toolbar.probe.scheme")}</span>
+                            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                                {t(`toolbar.probe.mode.${probeStatus.scheme.mode === "tcp" ? "tcp" : "singbox"}`)}
+                            </Badge>
+                            <span>·</span>
+                            <span>{t("toolbar.probe.interval", { min: probeStatus.scheme.interval_minutes })}</span>
+                            <span>·</span>
+                            <span>
+                                {t("toolbar.probe.autoVisibility")}
+                                {probeStatus.scheme.auto_visibility ? t("toolbar.probe.on") : t("toolbar.probe.off")}
+                            </span>
+                        </span>
+                    </div>
+                ) : null}
 
                 {sortMode ? (
                     <p className="text-xs text-muted-foreground">{t("toolbar.sort.tip")}</p>
@@ -600,13 +707,31 @@ export function NodeManagement() {
                                                 <div className="text-[10px] text-muted-foreground">({t("columns.internalPort")} {node.server_port})</div>
                                             )}
                                         </TableCell>
+                                        <TableCell>
+                                            <span className={`font-mono tabular-nums ${Number(node.online) > 0 ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                                                {Number(node.online || 0)}
+                                            </span>
+                                        </TableCell>
                                         <TableCell>{renderLatency(node, t)}</TableCell>
                                         <TableCell>
-                                            {node.is_delivered ? (
-                                                <Badge className="bg-emerald-500 text-white hover:bg-emerald-500">{t("columns.delivered.yes")}</Badge>
-                                            ) : (
-                                                <Badge variant="secondary" className="text-muted-foreground">{t("columns.delivered.no")}</Badge>
-                                            )}
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleShowToggle(node, !node.show)}
+                                                        className="cursor-pointer"
+                                                    >
+                                                        {node.is_delivered ? (
+                                                            <Badge className="bg-emerald-500 text-white hover:bg-emerald-600">{t("columns.delivered.yes")}</Badge>
+                                                        ) : (
+                                                            <Badge variant="secondary" className="text-muted-foreground hover:bg-secondary/80">{t("columns.delivered.no")}</Badge>
+                                                        )}
+                                                    </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p className="text-xs">{node.show ? t("columns.delivered.toggleOff") : t("columns.delivered.toggleOn")}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
                                         </TableCell>
                                         <TableCell><Badge variant="secondary">{node.rate}x</Badge></TableCell>
                                         <TableCell>
@@ -713,6 +838,38 @@ export function NodeManagement() {
                 onImported={load}
                 t={t}
             />
+        </div>
+    );
+}
+
+// 配置问题提示：套餐没设权限组（买了也分不到节点）、有套餐的用户没有权限组、客户端推送未开启。
+function NodeConfigWarnings({ stats, t }) {
+    if (!stats) return null;
+    const plans = stats.plans_without_group || [];
+    const usersNoGroup = stats.users_without_group || 0;
+    const showPlans = plans.length > 0;
+    const showUsers = usersNoGroup > 0;
+    const showPush = stats.client_push_enabled === false;
+    if (!showPlans && !showUsers && !showPush) return null;
+    return (
+        <div className="mt-4 space-y-2">
+            {(showPlans || showUsers) && (
+                <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400">
+                    <div className="font-medium">{t("manage.warnings.title")}</div>
+                    {showPlans && (
+                        <div className="mt-1">
+                            {t("manage.warnings.plans", { names: plans.map((p) => `${p.name}（${p.users}）`).join("、") })}
+                        </div>
+                    )}
+                    {showUsers && <div className="mt-1">{t("manage.warnings.users", { count: usersNoGroup })}</div>}
+                    <div className="mt-1 text-red-600/90 dark:text-red-400/90">{t("manage.warnings.fix")}</div>
+                </div>
+            )}
+            {showPush && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
+                    {t("manage.warnings.push_off")}
+                </div>
+            )}
         </div>
     );
 }

@@ -43,6 +43,33 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     }
   },
   "machine": {
+    "quickNode": {
+      "needProtocol": "Select at least one protocol",
+      "protocols": "Protocols (multiple allowed)",
+      "protocolsHint": "If one protocol cannot connect, try another: UDP may work when TCP is blocked, and vice versa. Empty ports are assigned automatically. AnyTLS and TUIC require the sing-box kernel (Xray does not support them).",
+      "nameHint": "With several protocols, the protocol name is appended to each node name.",
+      "button": "One-click node",
+      "title": "One-click Node Creation",
+      "description": "Pick one or more protocols. The panel generates keys and certificate settings and binds the nodes to this server; the node agent fetches and starts them automatically. You can edit them later in Node Management.",
+      "groups": "Groups",
+      "noGroups": "No groups yet. Create one in group management first.",
+      "needGroup": "Select at least one group",
+      "host": "Node address",
+      "hostHint": "Defaults to the IP this server last contacted the panel from. Change it if the server is behind NAT or you want a domain.",
+      "hostMissing": "This server has not contacted the panel yet. Enter its public IP or domain.",
+      "port": "Port",
+      "name": "Node name (optional)",
+      "sni": "Target site",
+      "sniHint": "The site Reality imitates (must support TLS 1.3); also the domain of the self-signed certificate for Hysteria2, TUIC and AnyTLS.",
+      "show": "Visible to users",
+      "submit": "Create",
+      "creating": "Creating…",
+      "cancel": "Cancel",
+      "close": "Done",
+      "created": "Created node #{{id}} ({{host}}:{{port}})",
+      "createdHint": "The node agent starts them automatically: within seconds over WebSocket, otherwise within about a minute. Open these ports in the server firewall and cloud security group; Hysteria2 and TUIC need UDP.",
+      "lastIp": "Last IP"
+    },
     "title": "Server Management",
     "description": "Review server health, load, and hosted nodes, then launch node actions from an operations view.",
     "columns": {
@@ -172,6 +199,37 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "unbindNode": "Unbind",
       "unbindSuccess": "\"{{name}}\" has been unbound",
       "unbindFailed": "Unbind failed",
+      "testNode": "Test",
+      "testAll": "Test All",
+      "testing": "Testing...",
+      "testOk": "Working",
+      "testFail": "Not working",
+      "testUntestable": "Cannot test",
+      "testLatency": "latency {{ms}}ms",
+      "testExit": "exit",
+      "testRealityHint": "A failing Reality node often means the target site is incompatible with the kernel (e.g. www.microsoft.com); edit the node, switch the target site to www.apple.com and test again",
+      "testTcpOnly": "port only (probe mode is TCP)",
+      "testHint": "Test makes a real request through the node from the panel server. Passing means the node is configured correctly, not that every user network can reach it (e.g. a blocked IP).",
+      "exportLinks": "Export Links",
+      "exportTitle": "Export Share Links",
+      "exportDescription": "Import directly into v2rayN and similar clients (import from clipboard). By default each node uses the first eligible user in its permission groups; you can also enter a user email.",
+      "exportEmailPlaceholder": "User email (optional)",
+      "exportGenerate": "Generate",
+      "exportUser": "User",
+      "exportDisabled": "Disabled",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyAll": "Copy all ({{count}})",
+      "download": "Download .txt",
+      "editNode": "Edit",
+      "nodeActions": "Actions",
+      "nodeMissing": "Node not found; it may have been deleted",
+      "toggleShowError": "Failed to toggle visibility",
+      "listenPort": "Listen port",
+      "unbindDescription": "\"{{name}}\" will no longer run on this server. The node is kept and can be bound again in Node Management.",
+      "deleteNodeConfirm": "Delete node \"{{name}}\"?",
+      "deleteNodeDescription": "The node is removed from the panel and its inbound on the server stops. This cannot be undone.",
+      "deleteNodeFailed": "Failed to delete node",
       "cancel": "Cancel"
     },
     "messages": {
@@ -378,6 +436,9 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     },
     "form": {
       "add": "Add Group",
+            "missing_badge": "No group",
+            "missing_form": "No permission group selected: users who buy this plan get no nodes. When editing an existing plan, also turn on \"Force update to users\" below so current subscribers move to the new group.",
+            "missing_banner": "These plans have no permission group, so their users get no nodes: {{names}}. Edit each plan, choose a group and turn on \"Force update to users\".",
       "edit": "Edit Group",
       "create": "Create Group",
       "update": "Update",
@@ -426,10 +487,16 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     "userManagement": "User Management",
     "trafficResetLogs": "Traffic Reset Logs",
     "ticketManagement": "Ticket Management",
+    "deviceManagement": "Device Management",
     "pluginApps": "Plugin Apps"
   },
   "auth": {
     "signIn": {
+      "heroTitle": "Secure, stable and fast connectivity",
+      "heroSubtitle": "Manage nodes, users, orders and subscriptions in one place.",
+      "heroPoint1": "Multi-node scheduling with live status",
+      "heroPoint2": "Subscriptions, orders and payments in one place",
+      "heroPoint3": "Automatic traffic and expiry reminders",
       "title": "Sign In",
       "description": "Enter your email and password to sign in",
       "email": "Email",
@@ -519,6 +586,37 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     }
   },
   "order": {
+    "cleanup": {
+      "title": "Auto-clean cancelled orders",
+      "description": "Only cancelled orders older than the set days are deleted; other statuses are never touched.",
+      "enable": "Enable auto-clean",
+      "days": "Keep for (days)",
+      "daysInvalid": "Days must be an integer between {{min}} and {{max}}",
+      "save": "Save",
+      "saved": "Saved",
+      "saveFailed": "Failed to save",
+      "loadFailed": "Failed to load the clean-up settings",
+      "run": "Clean up now",
+      "unsavedHint": "Save the settings first",
+      "nextAuto": "Runs automatically every day at {{time}}",
+      "autoOff": "Auto-clean is off; you can only clean up manually",
+      "pending": "{{count}} cancelled orders older than {{days}} days are waiting to be cleaned",
+      "last": "Last clean-up: {{time}} ({{source}}), {{count}} deleted",
+      "lastNone": "No clean-up has run yet",
+      "sourceDaily": "automatic",
+      "sourceManual": "manual",
+      "truncated": "Large batch; the rest will continue next time",
+      "runConfirmTitle": "Clean up cancelled orders now?",
+      "runConfirmDesc": "This permanently deletes {{count}} cancelled orders older than {{days}} days. It cannot be undone.",
+      "runConfirmBtn": "Delete",
+      "runDone": "{{count}} orders deleted",
+      "runFailed": "Clean-up failed"
+    },
+    "userFilter": {
+      "active": "Showing orders of user #{{id}}",
+      "total": "{{count}} total",
+      "clear": "Show all orders"
+    },
     "title": "Order Management",
     "description": "Here you can view user orders, including assignment, viewing, deletion and other operations.",
     "table": {
@@ -531,6 +629,11 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "status": "Order Status",
         "commission": "Commission Amount",
         "commissionStatus": "Commission Status",
+        "payment": "Payment Method",
+        "payer": "Payer",
+        "paymentBalance": "Balance",
+        "paymentManual": "Manually confirmed",
+        "payerHint": "Click to view all orders of this user",
         "createdAt": "Created At"
       }
     },
@@ -541,6 +644,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "RESET_FLOW": "Reset Traffic"
     },
     "period": {
+      "week_price": "Weekly",
       "month_price": "Monthly",
       "quarter_price": "Quarterly",
       "half_year_price": "Semi-annually",
@@ -771,7 +875,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     "description": "Configure node communication and synchronization settings, including communication key, polling interval, load balancing and other advanced options.",
     "server_token": {
       "title": "Communication Key",
-      "description": "The key for communication between Xboard and nodes to prevent unauthorized data access.",
+      "description": "The key for communication between Lets VPN and nodes to prevent unauthorized data access.",
       "placeholder": "Please enter communication key"
     },
     "server_pull_interval": {
@@ -798,6 +902,13 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "value": "{{synced}} / {{reported}} synced",
         "hint": "Users already on the latest node set / users running a client that reports back ({{total}} accounts in total). The rest sync automatically the next time they open the app or connect.",
         "last_change": "Last node change: {{time}}"
+      },
+      "warnings": {
+        "title": "Configuration problem: some users get no nodes",
+        "plans": "These plans have no permission group (active users in brackets): {{names}}.",
+        "users": "{{count}} users with an active plan have no permission group.",
+        "fix": "Fix: edit the plan in Plan Management, choose a group and turn on \"Force update to users\".",
+        "push_off": "Client push is off: node and plan changes are not sent to clients in real time; they update the next time the app opens the node list, connects, or on the 24-hour refresh. Enable client push in Node Settings."
       },
       "title": "Node Management",
       "description": "Manage all nodes, including adding, deleting, editing and other operations.",
@@ -827,6 +938,19 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "preset_name_placeholder": "Preset name, e.g. Balala",
         "preset_name_empty": "Please enter a preset name",
         "preset_save": "Save",
+        "save_as_new_preset": "+ Save as a new preset",
+        "editing": "Editing “{{name}}”",
+        "update_preset": "Save changes",
+        "update_preset_hint": "Change the subscription URL above, or the tag, defaults and schedule, then click Save changes.",
+        "preset_updated": "Changes saved",
+        "nodes_counting": "Counting nodes…",
+        "nodes_with_tag": "Nodes tagged “{{tag}}”: {{count}}",
+        "delete_nodes": "Delete its nodes",
+        "delete_nodes_no_tag": "This subscription has no source tag, so its nodes cannot be identified",
+        "delete_nodes_confirm": "Delete the {{count}} nodes tagged “{{tag}}”? This cannot be undone. The preset is kept.",
+        "delete_nodes_confirm_btn": "Delete",
+        "deleted_nodes": "Deleted {{count}} nodes",
+        "cancel": "Cancel",
         "from_plugin": "Fetch from Balala plugin",
         "plugin_loading": "Fetching...",
         "plugin_empty": "No subscription URL available from the plugin yet.",
@@ -944,7 +1068,8 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "status": {
         "0": "Not Running",
         "1": "Unused or Abnormal",
-        "2": "Running Normal"
+        "2": "Running Normal",
+        "3": "Reachable by probe (no agent report)"
       },
       "childNode": "Child Node",
       "actions_dropdown": {
@@ -985,6 +1110,9 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "on": "on",
         "off": "off",
         "disabled": "Speed test disabled",
+        "stop": "Stop",
+        "stopping": "Stopping after the current node…",
+        "stopped": "Last probe was stopped manually ({{done}}/{{total}} tested)",
         "mode": {
           "singbox": "sing-box live",
           "tcp": "TCP handshake"
@@ -1886,6 +2014,101 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "singbox_hint": "With auto-download on, the panel fetches and caches sing-box from the official release itself — no manual install needed. It spins up a sing-box connection per node and requests an IP echo, which is slow — widen the probe interval accordingly.",
         "singbox_unavailable": "No usable sing-box detected; falling back to TCP mode."
       },
+      "client_routing": {
+        "title": "Client routing (app Fast mode)",
+        "description": "Controls which sites the app sends direct and which go through the proxy in Fast mode. The app fetches this before each connection; users reconnect to apply changes.",
+        "flow_lan": "LAN addresses (192.168.x.x etc.) → direct",
+        "flow_custom": "Your custom rules in ③ below (table order, first match wins)",
+        "flow_cn": "China sites / China IPs → direct (lists from ①, domains resolved with the DNS in ②)",
+        "flow_rest": "Everything else → proxy",
+        "flow_safe": "In Safe mode (global proxy) only steps 2 and 4 apply, and \"direct\" custom rules are ignored.",
+        "source_title": "China direct list source",
+        "source_help": "Where the step-3 \"China sites / IPs\" lists are downloaded from; also used for geosite:xxx / geoip:xxx in rules.",
+        "source_loyalsoldier": "Loyalsoldier (recommended)",
+        "source_loyalsoldier_desc": "Same data as v2rayN, updated daily, more complete.",
+        "source_builtin": "Built-in hiddify-geo",
+        "source_builtin_desc": "The app's original default data.",
+        "source_custom": "Custom URL",
+        "source_custom_desc": "Your own mirror. {type} = geosite/geoip, {name} = rule-set name, e.g. geosite-cn.",
+        "source_preview": "China domain list URL",
+        "rules_title": "Custom rules (optional)",
+        "rules_desc": "Exceptions: send some China domains through the proxy (e.g. googleapis.cn) or send some foreign addresses direct. Turn off if not needed.",
+        "enable": "Enable custom rules",
+        "disabled_hint": "Off: the app only uses steps 1, 3 and 4 above.",
+        "add": "Add rule",
+        "edit": "Edit",
+        "delete": "Delete",
+        "delete_confirm": "Delete this rule?",
+        "save": "Save",
+        "cancel": "Cancel",
+        "saved": "Saved",
+        "preset": "Import common v2rayN \"Bypass mainland\" rules",
+        "json_toggle": "Advanced: edit JSON",
+        "empty": "No rules yet. Click \"Add rule\" or import the common v2rayN rules.",
+        "col_name": "Name",
+        "col_action": "Action",
+        "col_match": "Match (one per line)",
+        "name_placeholder": "e.g. OpenAI via proxy",
+        "out_proxy": "Proxy",
+        "out_direct": "Direct",
+        "out_block": "Block",
+        "out_proxy_long": "Through proxy",
+        "out_direct_long": "Direct (no proxy)",
+        "out_block_long": "Block (deny access)",
+        "fmt_domain": "example.com — the domain and all subdomains",
+        "fmt_full": "full:www.example.com — only this exact domain",
+        "fmt_keyword": "keyword:openai — domains containing the keyword",
+        "fmt_geosite": "geosite:netflix / geoip:telegram — ready-made lists from source ①",
+        "fmt_ip": "8.8.8.8 or 10.0.0.0/8 — an IP or IP range",
+        "need_match": "Enter at least one match line",
+        "more": "… {{count}} items",
+        "extra_kept": "This rule also has these advanced conditions, kept on save",
+        "source_active": "In use",
+        "source_unsaved": "Not saved",
+        "source_custom_hint": "Takes effect only after you enter a URL and click Save; until then the source marked \"In use\" stays active.",
+        "source_not_persisted": "The saved value read back differs from what was sent; refresh and try again.",
+        "dns_title": "Direct DNS (Fast mode)",
+        "dns_help": "Resolves China sites and domains hit by direct rules. Use a China DNS: a foreign resolver like 1.1.1.1 resolves China sites to overseas edges (e.g. Tencent to Hong Kong), making direct traffic slower. Not used in Safe mode.",
+        "dns_ali": "Alibaba DNS (recommended)",
+        "dns_tencent": "Tencent DNS",
+        "dns_app": "App local setting",
+        "dns_app_desc": "Don't override; use the direct DNS from the app's settings page.",
+        "dns_custom_desc": "An IP, or an encrypted DNS address such as https:// or tls://.",
+        "invalid_json": "Invalid JSON: "
+      },
+      "countries": {
+        "title": "Available countries",
+        "description": "Users without a membership can still see this list (countries and available node counts only, no node addresses). Updated automatically once a day, or manually.",
+        "button": "Update now",
+        "refreshing": "Probing and updating, this may take a few minutes…",
+        "updated": "Last updated",
+        "count": "countries available",
+        "source_daily": "daily",
+        "source_manual": "manual",
+        "source_lazy": "first build",
+        "kept": "No node was available this time (probe problem?). The previous list was kept.",
+        "empty": "No available country yet (nodes not probed, or all unavailable).",
+        "unknown": "available node(s) have an unknown country and are not listed.",
+        "auto": "Updates automatically at {time} every day",
+        "nodes": "nodes",
+        "never": "Not generated yet",
+        "time_label": "Daily update time",
+        "time_desc": "Server local time zone. Saved automatically, no restart needed.",
+        "tags_label": "Country tags",
+        "tags_placeholder": "HK:Recommended,JP:Fast",
+        "tags_desc": "Badges shown in the client's country list. Format: code:text, comma separated; a bare code shows 推荐. Leave empty for none. Saved automatically and applied immediately."
+      },
+      "singbox_download": {
+        "title": "Download sing-box online",
+        "description": "Download from the official GitHub releases and install on the panel host. The binary is verified after download. No need to log in to the server.",
+        "button": "Download online",
+        "button_retry": "Download again",
+        "downloading": "Downloading…",
+        "done": "Download complete, sing-box is ready",
+        "failed": "Download failed",
+        "version": "Version",
+        "path": "Installed at"
+      },
       "node_probe_singbox_auto_download": {
         "title": "Auto-download sing-box",
         "description": "When the panel host has no sing-box, download, extract and cache it from the official GitHub release for the host's OS/arch — no manual install."
@@ -2112,6 +2335,11 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "discover_prompt_cancel_text": {
         "title": "Disconnected-state cancel button text",
         "placeholder": "Cancel"
+      },
+      "discover_nav_page_url": {
+        "title": "Navigation site URL",
+        "placeholder": "https://nav.example.com",
+        "description": "Web page opened by the floating button on the client home screen; leave empty to hide the button"
       },
       "saving": "Saving...",
       "save_error": "Save failed, please try again",
@@ -2506,7 +2734,7 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       },
       "surplus_enable": {
         "title": "Enable Deduction Plan",
-        "description": "When enabled, the system will deduct from the original subscription when users change subscriptions, refer to documentation for details."
+        "description": "When a user switches from a time-based plan, the remaining time is always converted to the new plan by daily price and added on, regardless of this switch. This switch only affects one-time (no expiry) plans: when enabled, the value of the remaining traffic is deducted from the new order."
       },
       "new_order_event": {
         "title": "Trigger Event on New Subscription",
@@ -2939,7 +3167,74 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
     "orderManagement": "Order Management",
     "couponManagement": "Coupon Management",
     "userManagement": "User Management",
-    "ticketManagement": "Ticket Management"
+    "ticketManagement": "Ticket Management",
+    "deviceManagement": "Device Management"
+  },
+  "device": {
+    "title": "Device Management",
+    "description": "View each device's bound account, trial status and the accounts registered on it. A device can claim the trial only once; you can reset or mark it here.",
+    "search_placeholder": "Device ID / 9-digit code / email / user ID",
+    "filter": {
+      "all": "All devices",
+      "claimed": "Trial claimed",
+      "unclaimed": "Trial not claimed"
+    },
+    "columns": {
+      "device_id": "Device ID",
+      "display_code": "Device code",
+      "current_user": "Bound account",
+      "claimed_trial": "Trial",
+      "accounts": "Accounts",
+      "trials": "Trials",
+      "updated_at": "Updated",
+      "created_at": "First seen",
+      "actions": "Actions"
+    },
+    "status": {
+      "claimed": "Claimed",
+      "unclaimed": "Available"
+    },
+    "user_banned": "Banned/deleted",
+    "no_user": "None",
+    "list": {
+      "empty": "No devices"
+    },
+    "actions": {
+      "search": "Search",
+      "view": "Details",
+      "reset_trial": "Reset trial",
+      "mark_claimed": "Mark claimed",
+      "confirm": "Confirm",
+      "reset_confirm_title": "Reset this device's trial?",
+      "reset_confirm_description": "After resetting, the next account registered (or device trial claimed) on this device will receive the trial plan again.",
+      "mark_confirm_title": "Mark trial as claimed?",
+      "mark_confirm_description": "This device will no longer receive the trial plan when registering or claiming a device trial."
+    },
+    "detail": {
+      "title": "Device details",
+      "accounts": "Accounts registered on / bound to this device",
+      "trial_logs": "Trial claims",
+      "no_accounts": "No accounts",
+      "no_logs": "No trial claims (claims before this feature was deployed are not listed)",
+      "current": "Bound",
+      "device_trial_account": "Device trial",
+      "user_id": "User ID",
+      "email": "Email",
+      "plan": "Plan",
+      "expired_at": "Expires",
+      "created_at": "Registered",
+      "granted_at": "Claimed at",
+      "source": "Source",
+      "trial_expired_at": "Trial expires",
+      "ip": "IP"
+    },
+    "source": {
+      "register": "Registration",
+      "device_trial": "Device trial"
+    },
+    "messages": {
+      "failed": "Operation failed"
+    }
   },
   "ticket": {
     "title": "Ticket Management",
@@ -3331,6 +3626,69 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
       "clear": "Clear filters",
       "search_placeholder": "Search...",
       "email_search": "Search user email...",
+      "quick": {
+        "all": "All",
+        "online": "Online now",
+        "no_plan": "No plan",
+        "expired": "Expired",
+        "expiring": "Expiring in 7 days",
+        "banned": "Banned"
+      },
+      "builder": {
+        "add": "Add filter",
+        "title_add": "Add filter condition",
+        "title_edit": "Edit filter condition",
+        "field": "Field",
+        "operator": "Condition",
+        "value": "Value",
+        "from": "From",
+        "to": "To",
+        "days_label": "Days",
+        "days_placeholder": "Number of days",
+        "days_unit": "days",
+        "text_placeholder": "Enter text",
+        "pick_plans": "Choose plans (multiple)",
+        "no_value_needed": "This condition needs no value",
+        "preview": "Will filter: {{text}}",
+        "confirm": "OK",
+        "cancel": "Cancel",
+        "match": "Match",
+        "match_all": "All",
+        "match_any": "Any",
+        "save_view": "Save as favorite",
+        "view_name": "Favorite filter name",
+        "view_placeholder": "e.g. Paid users expiring this week",
+        "views": "Saved filters",
+        "remove_view": "Delete this saved filter",
+        "remove_condition": "Remove this condition",
+        "edit_condition": "Click to edit",
+        "ops": {
+          "contains": "contains",
+          "not_contains": "does not contain",
+          "eq": "equals",
+          "neq": "does not equal",
+          "starts": "starts with",
+          "ends": "ends with",
+          "gt": "greater than",
+          "gte": "at least",
+          "lt": "less than",
+          "lte": "at most",
+          "between": "between",
+          "on": "on this day",
+          "before": "before",
+          "after": "after",
+          "within_next": "in the next {{n}} days",
+          "within_last": "in the last {{n}} days",
+          "older_than": "more than {{n}} days ago",
+          "past": "expired",
+          "future": "not expired",
+          "is": "is",
+          "is_not": "is not",
+          "in": "is any of",
+          "empty": "is empty",
+          "not_empty": "is not empty"
+        }
+      },
       "advanced": "Advanced Filter",
       "reset": "Reset Filter",
       "sheet": {
@@ -3361,7 +3719,12 @@ window.XBOARD_TRANSLATIONS['en-US'] = {
         "inviter_email": "Inviter Email",
         "invite_user_id": "Inviter ID",
         "is_admin": "Admin",
-        "is_staff": "Staff"
+        "is_staff": "Staff",
+        "created_at": "Registered at",
+        "last_login_at": "Last login",
+        "balance": "Balance",
+        "commission_balance": "Commission balance",
+        "device_limit": "Device limit"
       },
       "operators": {
         "contains": "Contains",

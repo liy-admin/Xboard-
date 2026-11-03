@@ -429,6 +429,11 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
   },
   "auth": {
     "signIn": {
+      "heroTitle": "安全、稳定、极速的连接体验",
+      "heroSubtitle": "统一管理节点、用户、订单与订阅，让每一次连接都顺畅可靠。",
+      "heroPoint1": "多节点智能调度与实时状态",
+      "heroPoint2": "订阅、订单、支付一站式管理",
+      "heroPoint3": "流量与到期提醒自动触达用户",
       "title": "登录",
       "description": "请输入您的邮箱和密码登录系统",
       "email": "邮箱地址",
@@ -514,6 +519,11 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
     }
   },
   "order": {
+    "userFilter": {
+      "active": "正在查看用户 #{{id}} 的订单",
+      "total": "共 {{count}} 笔",
+      "clear": "显示全部订单"
+    },
     "title": "订单管理",
     "description": "在这里可以查看用户订单，包括分配、查看、删除等操作。",
     "table": {
@@ -2344,7 +2354,7 @@ window.XBOARD_TRANSLATIONS['zh-CN'] = {
       "description": "配置节点通信和同步设置，包括通信密钥、轮询间隔、负载均衡等高级选项。",
       "server_token": {
         "title": "通讯密钥",
-        "description": "Xboard与节点通讯的密钥，以便数据不会被他人获取。",
+        "description": "Lets VPN与节点通讯的密钥，以便数据不会被他人获取。",
         "placeholder": "请输入通讯密钥",
         "generate_tooltip": "点击生成随机通信密钥"
       },
