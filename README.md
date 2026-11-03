@@ -1,124 +1,69 @@
-# Xboard
+# Xboard (Go)
 
-<div align="center">
+代理订阅面板，**Go 语言实现**。单个二进制即可部署：内嵌管理端、默认用户端主题、核心插件清单和建表 SQL，服务器上只需要 MySQL / MariaDB 和 Redis，不需要 PHP 或 Node。
 
-[![Telegram](https://img.shields.io/badge/Telegram-Channel-blue)](https://t.me/XboardOfficial)
-![PHP](https://img.shields.io/badge/PHP-8.2+-green.svg)
-![MySQL](https://img.shields.io/badge/MySQL-5.7+-blue.svg)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+> 本仓库原为基于 Laravel 的 PHP 版 Xboard。现已整体替换为 Go 版：接口路径、数据库表结构、登录 token 与 PHP 版兼容，可以原地替换。
+> 替换前的 PHP 版完整保存在标签 **`php-final`**：`git checkout php-final`。
 
-</div>
+## 特性
 
-## 📖 Introduction
+- 用户、套餐、订单、优惠券、礼品卡、邀请与佣金、工单、公告、知识库
+- 支付网关：EPay、支付宝当面付、Bepusdt、MGate、BTCPay、CoinPayments、Coinbase
+- 订阅输出：sing-box、Clash / Clash.Meta / Stash、Surge、Surfboard、Loon、QuantumultX、Shadowrocket、SIP008、通用 base64
+- 节点对接（UniProxy）、WebSocket 推送、节点真连测速（sing-box）、按国家去重
+- 内置调度器（订单、佣金、流量重置、统计、提醒邮件等），无需 cron / 队列进程
+- 邮件、验证码、Telegram 机器人
+- 管理端（React）在 `admin-src/`，用户端为内嵌的编译主题
 
-Xboard is a modern panel system built on Laravel 11, focusing on providing a clean and efficient user experience.
+## 快速开始
 
-## ✨ Features
-
-- 🚀 Built with Laravel 12 + Octane for significant performance gains
-- 🎨 Redesigned admin interface (React + Shadcn UI)
-- 📱 Modern user frontend (Vue3 + TypeScript)
-- 🐳 Ready-to-use Docker deployment solution
-- 🎯 Optimized system architecture for better maintainability
-
-## 🚀 Quick Start
+需要 Go（版本见 `go.mod`）、MySQL / MariaDB、Redis；构建管理端需要 Node.js。
 
 ```bash
-git clone -b compose --depth 1 https://github.com/cedar2025/Xboard && \
-cd Xboard && \
-docker compose run -it --rm \
-    -e ENABLE_SQLITE=true \
-    -e ENABLE_REDIS=true \
-    -e ADMIN_ACCOUNT=admin@demo.com \
-    xboard php artisan xboard:install && \
-docker compose up -d
+cp .env.example .env          # 填 DB_* / REDIS_* / LISTEN
+go run ./cmd/xboard keygen    # 把输出写进 .env 的 APP_KEY
+go run ./cmd/xboard install admin@example.com   # 建库建表并创建管理员
+go run ./cmd/xboard           # 启动（HTTP + WebSocket + 调度器）
 ```
 
-> After installation, visit: http://SERVER_IP:7001  
-> ⚠️ Make sure to save the admin credentials shown during installation
+打发布包（linux/amd64 + linux/arm64，含管理端构建、gofmt / vet / test）：
 
-## 📖 Documentation
-
-### 🔄 Upgrade Notice
-> 🚨 **Important:** This version involves significant changes. Please strictly follow the upgrade documentation and backup your database before upgrading. Note that upgrading and migration are different processes, do not confuse them.
-
-### Development Guides
-- [Plugin Development Guide](./docs/en/development/plugin-development-guide.md) - Complete guide for developing XBoard plugins
-
-### Deployment Guides
-- [Deploy with 1Panel](./docs/en/installation/1panel.md)
-- [Deploy with Docker Compose](./docs/en/installation/docker-compose.md)
-- [Deploy with aaPanel](./docs/en/installation/aapanel.md)
-- [Deploy with aaPanel + Docker](./docs/en/installation/aapanel-docker.md) (Recommended)
-
-### Migration Guides
-- [Migrate from v2board dev](./docs/en/migration/v2board-dev.md)
-- [Migrate from v2board 1.7.4](./docs/en/migration/v2board-1.7.4.md)
-- [Migrate from v2board 1.7.3](./docs/en/migration/v2board-1.7.3.md)
-
-## 🛠️ Tech Stack
-
-- Backend: Laravel 11 + Octane
-- Admin Panel: React + Shadcn UI + TailwindCSS
-- User Frontend: Vue3 + TypeScript + NaiveUI
-- Deployment: Docker + Docker Compose
-- Caching: Redis + Octane Cache
-
-## 📷 Preview
-![Admin Preview](./docs/images/admin.png)
-
-![User Preview](./docs/images/user.png)
-
-## ⚠️ Disclaimer
-
-This project is for learning and communication purposes only. Users are responsible for any consequences of using this project.
-
-## ❤️ Support The Project
-
-If this project has helped you, donations are appreciated. They help support ongoing maintenance and would make me very happy.
-
-TRC20: `TLypStEWsVrj6Wz9mCxbXffqgt5yz3Y4XB`
-
-## 🌟 Maintenance Notice
-
-This project is currently under light maintenance. We will:
-- Fix critical bugs and security issues
-- Review and merge important pull requests
-- Provide necessary updates for compatibility
-
-However, new feature development may be limited.
-
-## 🔑 Reset Admin Password
-
-If you forgot the admin password, use the built-in artisan command:
-
-**Docker deployment:**
 ```bash
-docker compose exec xboard php artisan reset:password admin@demo.com newpassword123
+VERSION=1.0.0 bash scripts/build-release.sh
+TARGETS="linux/amd64" VERSION=1.0.0 bash scripts/build-release.sh   # 只打一个平台
 ```
 
-**Local / aaPanel deployment:**
-```bash
-php artisan reset:password admin@demo.com newpassword123
+产物在 `dist/xboard-<版本>-linux-<架构>.tar.gz`。
+
+## 文档
+
+| 文档 | 内容 |
+|---|---|
+| [GO-LIVE.md](GO-LIVE.md) | **上线文档**：上线前检查、从 PHP 版切换、冒烟验证、回滚、运维、安全清单 |
+| [DEPLOY.md](DEPLOY.md) | 安装与运行（systemd、nginx、升级、多实例） |
+| [PROGRESS.md](PROGRESS.md) | 功能清单，以及与 PHP 版的行为差异 |
+| [AUDIT.md](AUDIT.md) | 管理端接口与 PHP 版的对照审计 |
+| [docs/api.md](docs/api.md) | 接口说明 |
+
+## 目录
+
+```
+cmd/xboard        入口（serve / schedule / migrate / install / admin:create / keygen / version / 定时任务）
+internal/         后端实现（api、shop、sub、jobs、notify、nodeparse、singbox、schema、web ...）
+admin-src/source  管理端前端源码（React + Vite）
+theme/Xboard      用户端默认主题（编译产物，无源码）
+plugins-core/     核心插件清单（config.json / README，供后台显示）
+plugins/          BalalaSub 抓取脚本等运行时资源
+deploy/           systemd 单元与 nginx 示例
+scripts/          构建与发布脚本；scripts/wsl 为 WSL 端到端验证脚本
 ```
 
-- Replace `admin@demo.com` with the actual admin email
-- Replace `newpassword123` with the new password (min 8 characters)
-- If the password argument is omitted, you will be prompted to enter it interactively
+## 限制
 
-## 🔔 Important Notes
+- 只支持 MySQL / MariaDB（不支持 SQLite、PostgreSQL）。
+- 不执行 PHP 插件与主题，只维护数据库记录。已原生实现的：核心支付网关、Telegram、BalalaSub。
+- 完整列表见 [GO-LIVE.md](GO-LIVE.md) 第 11 节。
 
-1. Restart required after modifying admin path:
-```bash
-docker compose restart
-```
+## 许可证
 
-2. For aaPanel installations, restart the Octane daemon process
-
-## 🤝 Contributing
-
-Issues and Pull Requests are welcome to help improve the project.
-
-## 📈 Star History
-
-[![Stargazers over time](https://starchart.cc/cedar2025/Xboard.svg)](https://starchart.cc/cedar2025/Xboard)
+见 [LICENSE](LICENSE)。

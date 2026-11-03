@@ -1,9 +1,0 @@
-# 发布产物
-/dist/
-# 由 scripts/sync-web.sh 生成的内嵌前端资源（保留 .keep，让没有同步过的克隆也能编译）
-/internal/web/dist/*
-!/internal/web/dist/.keep
-# 本地配置
-.env
-# R2 上传凭据（见 scripts/r2.env.example）
-/scripts/.r2.env

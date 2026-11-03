@@ -1,50 +1,39 @@
-/node_modules
-/config/v2board.php
-/config/googleCloudStorageKey.json
-/public/hot
-/public/storage
-/public/env.example.js
-*.user.ini
-/storage/*.key
-/vendor
-.env
-.env.backup
-.phpunit.result.cache
-.idea
-Homestead.json
-Homestead.yaml
-npm-debug.log
-yarn-error.log
-composer.phar
-yarn.lock
-docker-compose.yml
-.DS_Store
-/docker
-storage/laravels.conf
-storage/laravels.pid
-storage/update_pending
-storage/laravels-timer-process.pid
-cli-php.ini
-frontend
+# ---- 构建产物 ----
+/dist/
+# 由 scripts/sync-web.sh 生成的内嵌前端资源（保留 .keep，让没有同步过的克隆也能编译）
+/internal/web/dist/*
+!/internal/web/dist/.keep
+# 管理端（admin-src/source）的构建输出与依赖；build-release.sh 会自动构建
+/public/assets/admin/
 /admin-src/source/node_modules
-docker-compose.yaml
-bun.lockb
-compose.yaml
-compose.host.yaml
-compose.split.yaml
-.scribe
-**/caddy
-frankenphp
-frankenphp-worker.php
 
-# --- Go 版：本地运行产物与凭据（不要入库）---
+# ---- 本地配置与凭据（不要入库）----
+.env
+.env.*
+!.env.example
+/scripts/.r2.env
+/scripts/r2.env
+
+# ---- 运行时数据与本地二进制 ----
+/storage/
+*.exe
+/public/storage
+.idea
+.DS_Store
+
+# ---- 旧 PHP 版遗留（本地磁盘上可能还在，里面可能有 SQLite 数据库和上传文件，不入库）----
+/.docker/
+/bootstrap/
+/database/
+/vendor/
+/vendor.php-legacy/
+/frankenphp
+/plugins.php-legacy/
+/public/theme/
+/public/frankenphp-worker.php
+/composer.phar
 /Xboard.zip
 /vendor.zip
 /vendor.7z
-/storage/app/
-/go/storage/
-/go/dist/
-/go/xboard.exe
-/go/.env
-/go/scripts/r2.env
-/go/scripts/.r2.env
+# 提升到仓库根目录之前的开发目录，里面只剩被忽略的运行时文件
+/go/
