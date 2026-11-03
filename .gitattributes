@@ -1,4 +1,5 @@
-* text=auto
+# 所有文本文件在任何平台都按 LF 检出（否则 Windows 上 Go 源码变 CRLF，gofmt 检查会失败）
+* text=auto eol=lf
 
 # 脚本与部署文件必须是 LF：在 Windows 上检出成 CRLF 会让 bash 报
 # "set: pipefail: invalid option name"，.env 里的值也会带上回车符。
