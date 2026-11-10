@@ -9,6 +9,7 @@ import { Textarea } from "../../components/Textarea.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Switch } from "../../components/Switch.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { SortableHead, useClientSort } from "../../components/SortableHead.jsx";
 import { SearchFilterToolbar } from "../../components/SearchFilterToolbar.jsx";
 import { FormDialog } from "../../components/FormDialog.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
@@ -141,6 +142,22 @@ export function PlanManagement() {
         return items.filter((p) => (p.name || "").toLowerCase().includes(keyword));
     }, [items, search]);
 
+    // 价格列按最低的已定价周期价格排序。
+    const minPrice = (p) => {
+        const vals = Object.values(p.prices || {}).filter((v) => v !== null && v !== undefined && v !== "").map(Number).filter(Number.isFinite);
+        return vals.length ? Math.min(...vals) : null;
+    };
+    const { sorted, sort, toggle: toggleSort } = useClientSort(filtered, {
+        id: (i) => Number(i.id),
+        show: (i) => (i.show ? 1 : 0),
+        sell: (i) => (i.sell ? 1 : 0),
+        renew: (i) => (i.renew ? 1 : 0),
+        name: (i) => i.name || "",
+        stats: (i) => Number(i.users_count || 0),
+        group: (i) => i.group?.name || null,
+        price: (i) => minPrice(i),
+    });
+
     const enterSortMode = () => {
         setOrderedItems(items);
         setSortMode(true);
@@ -264,7 +281,7 @@ export function PlanManagement() {
         setGroupDialogName("");
     };
 
-    const displayItems = sortMode ? orderedItems : filtered;
+    const displayItems = sortMode ? orderedItems : sorted;
 
     return (
         <div className="p-4 md:p-6">
@@ -305,14 +322,14 @@ export function PlanManagement() {
                     <TableHeader>
                         <TableRow>
                             {sortMode && <TableHead className="w-10"></TableHead>}
-                            <TableHead className="w-16">{t("plan.columns.id")}</TableHead>
-                            <TableHead className="w-16">{t("plan.columns.show")}</TableHead>
-                            <TableHead className="w-16">{t("plan.columns.sell")}</TableHead>
-                            <TableHead className="w-16" title={t("plan.columns.renew_tooltip")}>{t("plan.columns.renew")}</TableHead>
-                            <TableHead>{t("plan.columns.name")}</TableHead>
-                            <TableHead>{t("plan.columns.stats")}</TableHead>
-                            <TableHead>{t("plan.columns.group")}</TableHead>
-                            <TableHead>{t("plan.columns.price")}</TableHead>
+                            <SortableHead className="w-16" sortKey="id" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("plan.columns.id")}</SortableHead>
+                            <SortableHead className="w-16" sortKey="show" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("plan.columns.show")}</SortableHead>
+                            <SortableHead className="w-16" sortKey="sell" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("plan.columns.sell")}</SortableHead>
+                            <SortableHead className="w-16" title={t("plan.columns.renew_tooltip")} sortKey="renew" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("plan.columns.renew")}</SortableHead>
+                            <SortableHead sortKey="name" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("plan.columns.name")}</SortableHead>
+                            <SortableHead sortKey="stats" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("plan.columns.stats")}</SortableHead>
+                            <SortableHead sortKey="group" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("plan.columns.group")}</SortableHead>
+                            <SortableHead sortKey="price" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("plan.columns.price")}</SortableHead>
                             <TableHead className="w-32 text-right">{t("plan.columns.actions")}</TableHead>
                         </TableRow>
                     </TableHeader>

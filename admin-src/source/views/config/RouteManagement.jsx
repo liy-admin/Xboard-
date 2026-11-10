@@ -7,6 +7,7 @@ import { Input } from "../../components/Input.jsx";
 import { Textarea } from "../../components/Textarea.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { SortableHead, useClientSort } from "../../components/SortableHead.jsx";
 import { SearchFilterToolbar } from "../../components/SearchFilterToolbar.jsx";
 import { FormDialog } from "../../components/FormDialog.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
@@ -45,6 +46,13 @@ export function RouteManagement() {
         if (!keyword) return items;
         return items.filter((r) => (r.remarks || "").toLowerCase().includes(keyword));
     }, [items, search]);
+
+    const { sorted, sort, toggle: toggleSort } = useClientSort(filtered, {
+        id: (i) => Number(i.id),
+        remarks: (i) => i.remarks || "",
+        action_value: (i) => `${i.action || ""} ${i.action_value || ""}`,
+        action: (i) => i.action || "",
+    });
 
     const openAdd = () => {
         setForm(EMPTY_FORM);
@@ -117,20 +125,20 @@ export function RouteManagement() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-16">{t("columns.id")}</TableHead>
-                            <TableHead>{t("columns.remarks")}</TableHead>
-                            <TableHead>{t("columns.action_value.title")}</TableHead>
-                            <TableHead>{t("columns.action")}</TableHead>
+                            <SortableHead className="w-16" sortKey="id" sort={sort} onSort={toggleSort}>{t("columns.id")}</SortableHead>
+                            <SortableHead sortKey="remarks" sort={sort} onSort={toggleSort}>{t("columns.remarks")}</SortableHead>
+                            <SortableHead sortKey="action_value" sort={sort} onSort={toggleSort}>{t("columns.action_value.title")}</SortableHead>
+                            <SortableHead sortKey="action" sort={sort} onSort={toggleSort}>{t("columns.action")}</SortableHead>
                             <TableHead className="w-32 text-right">{t("columns.actions")}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             <TableEmpty colSpan={5}>...</TableEmpty>
-                        ) : filtered.length === 0 ? (
+                        ) : sorted.length === 0 ? (
                             <TableEmpty colSpan={5}>-</TableEmpty>
                         ) : (
-                            filtered.map((item) => (
+                            sorted.map((item) => (
                                 <TableRow key={item.id}>
                                     <TableCell><Badge variant="outline" className="font-mono">{item.id}</Badge></TableCell>
                                     <TableCell className="font-medium">{item.remarks}</TableCell>

@@ -7,6 +7,7 @@ import { Input } from "../../components/Input.jsx";
 import { Textarea } from "../../components/Textarea.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { SortableHead, useServerSort } from "../../components/SortableHead.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
 import { Dialog } from "../../components/Dialog.jsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/Select.jsx";
@@ -211,6 +212,7 @@ export function TicketManagement() {
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
     const [page, setPage] = useState(1);
+    const { sort, toggle: toggleSort, sortParam } = useServerSort(() => setPage(1));
     const [status, setStatus] = useState(String(STATUS_OPENING));
     const [level, setLevel] = useState("all");
     const [search, setSearch] = useState("");
@@ -228,7 +230,7 @@ export function TicketManagement() {
 
     const load = () => {
         setLoading(true);
-        return fetchTickets({ pageSize: PAGE_SIZE, current: page, filter: buildFilter(), sort: [] })
+        return fetchTickets({ pageSize: PAGE_SIZE, current: page, filter: buildFilter(), sort: sortParam })
             .then((res) => {
                 setItems(res?.data || []);
                 setTotal(res?.total ?? 0);
@@ -239,7 +241,7 @@ export function TicketManagement() {
     useEffect(() => {
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, filtersVersion]);
+    }, [page, filtersVersion, sort.key, sort.dir]);
 
     const refetch = () => {
         if (page !== 1) setPage(1);
@@ -306,12 +308,12 @@ export function TicketManagement() {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>{t("columns.id")}</TableHead>
-                        <TableHead>{t("columns.subject")}</TableHead>
-                        <TableHead>{t("columns.level")}</TableHead>
-                        <TableHead>{t("columns.status")}</TableHead>
-                        <TableHead>{t("columns.updated_at")}</TableHead>
-                        <TableHead>{t("columns.created_at")}</TableHead>
+                        <SortableHead sortKey="id" sort={sort} onSort={toggleSort}>{t("columns.id")}</SortableHead>
+                        <SortableHead sortKey="subject" sort={sort} onSort={toggleSort}>{t("columns.subject")}</SortableHead>
+                        <SortableHead sortKey="level" sort={sort} onSort={toggleSort}>{t("columns.level")}</SortableHead>
+                        <SortableHead sortKey="status" sort={sort} onSort={toggleSort}>{t("columns.status")}</SortableHead>
+                        <SortableHead sortKey="updated_at" sort={sort} onSort={toggleSort}>{t("columns.updated_at")}</SortableHead>
+                        <SortableHead sortKey="created_at" sort={sort} onSort={toggleSort}>{t("columns.created_at")}</SortableHead>
                         <TableHead className="text-right">{t("columns.actions")}</TableHead>
                     </TableRow>
                 </TableHeader>

@@ -35,9 +35,25 @@ var adminUserFilter = map[string]bool{"id": true, "email": true, "plan_id": true
 	"online_count": true, "uuid": true, "token": true, "remarks": true, "invite_user_id": true, "is_staff": true,
 	"device_limit": true}
 
-var adminUserSort = map[string]bool{"id": true, "email": true, "created_at": true, "expired_at": true, "balance": true,
-	"commission_balance": true, "plan_id": true, "transfer_enable": true, "u": true, "d": true, "last_login_at": true,
-	"is_admin": true, "banned": true}
+// adminUserSort 用户列表可排序的列（列键 → SQL 表达式）。计算列与关联列用子查询，与页面显示的值一致。
+var adminUserSort = map[string]string{
+	"id": "v2_user.id", "email": "v2_user.email", "created_at": "v2_user.created_at", "balance": "v2_user.balance",
+	"commission_balance": "v2_user.commission_balance", "plan_id": "v2_user.plan_id", "transfer_enable": "v2_user.transfer_enable",
+	"u": "v2_user.u", "d": "v2_user.d", "last_login_at": "v2_user.last_login_at", "is_admin": "v2_user.is_admin",
+	"banned":     "v2_user.banned",
+	"total_used": "(v2_user.u + v2_user.d)",
+	// 到期时间为空表示长期有效，排序时视为最晚。
+	"expired_at":  "COALESCE(v2_user.expired_at, 253402300799)",
+	"plan":        "(SELECT p.name FROM v2_plan p WHERE p.id = v2_user.plan_id)",
+	"group":       "(SELECT g.name FROM v2_server_group g WHERE g.id = v2_user.group_id)",
+	"invite_code": "(SELECT MIN(ic.code) FROM v2_invite_code ic WHERE ic.user_id = v2_user.id)",
+	"inviter":     "(SELECT iu.email FROM v2_user iu WHERE iu.id = v2_user.invite_user_id)",
+	// 已登录设备数：口径同 userLoggedInDevices（带 device_id、未过期的不同设备）。
+	"logged_in_devices": "(SELECT COUNT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(t.name, '$.device_id'))) FROM personal_access_tokens t" +
+		" WHERE t.tokenable_id = v2_user.id AND t.tokenable_type = CONCAT('App', CHAR(92), 'Models', CHAR(92), 'User') AND JSON_VALID(t.name)" +
+		" AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.name, '$.device_id')), '') <> ''" +
+		" AND (t.expires_at IS NULL OR t.expires_at > NOW()))",
+}
 
 // adminUserList 返回分页列表（支持 filter/sort 参数）。
 func (a *App) adminUserList(c *gin.Context) {
@@ -51,7 +67,7 @@ func (a *App) adminUserList(c *gin.Context) {
 	var total int64
 	q.Count(&total)
 	var rows []model.User
-	adminSorts(c, adminUserSort, q).Order("id DESC").Offset((cur - 1) * size).Limit(size).Find(&rows)
+	adminSortExprs(c, adminUserSort, q).Order("v2_user.id DESC").Offset((cur - 1) * size).Limit(size).Find(&rows)
 	paginateJSON(c, total, cur, size, a.userAdminViews(rows))
 }
 

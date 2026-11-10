@@ -17,6 +17,7 @@ import { Switch } from "../../components/Switch.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Tooltip, TooltipTrigger, TooltipContent } from "../../components/Tooltip.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { SortableHead, useClientSort } from "../../components/SortableHead.jsx";
 import { SearchFilterToolbar } from "../../components/SearchFilterToolbar.jsx";
 import { FormDialog } from "../../components/FormDialog.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
@@ -88,6 +89,14 @@ export function PaymentConfig() {
         if (!keyword) return payments;
         return payments.filter((p) => (p.name || "").toLowerCase().includes(keyword));
     }, [payments, search]);
+
+    const { sorted, sort, toggle: toggleSort } = useClientSort(filtered, {
+        id: (i) => Number(i.id),
+        enable: (i) => (i.enable ? 1 : 0),
+        name: (i) => i.name || "",
+        payment: (i) => i.payment || "",
+        notify_url: (i) => i.notify_url || "",
+    });
 
     const orderedForSort = useMemo(() => {
         const byId = new Map(payments.map((p) => [p.id, p]));
@@ -234,26 +243,26 @@ export function PaymentConfig() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-16">{t("table.columns.id")}</TableHead>
-                            <TableHead className="w-20">{t("table.columns.enable")}</TableHead>
-                            <TableHead>{t("table.columns.name")}</TableHead>
-                            <TableHead>{t("table.columns.payment")}</TableHead>
-                            <TableHead>
+                            <SortableHead className="w-16" sortKey="id" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("table.columns.id")}</SortableHead>
+                            <SortableHead className="w-20" sortKey="enable" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("table.columns.enable")}</SortableHead>
+                            <SortableHead sortKey="name" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("table.columns.name")}</SortableHead>
+                            <SortableHead sortKey="payment" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("table.columns.payment")}</SortableHead>
+                            <SortableHead sortKey="notify_url" sort={sort} onSort={toggleSort} disabled={sortMode}>
                                 <Tooltip>
                                     <TooltipTrigger>{t("table.columns.notify_url")}</TooltipTrigger>
                                     <TooltipContent>{t("table.columns.notify_url_tooltip")}</TooltipContent>
                                 </Tooltip>
-                            </TableHead>
+                            </SortableHead>
                             <TableHead className="w-40 text-right">{t("table.columns.actions")}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             <TableEmpty colSpan={6}>...</TableEmpty>
-                        ) : (sortMode ? orderedForSort : filtered).length === 0 ? (
+                        ) : (sortMode ? orderedForSort : sorted).length === 0 ? (
                             <TableEmpty colSpan={6}>-</TableEmpty>
                         ) : (
-                            (sortMode ? orderedForSort : filtered).map((payment) => (
+                            (sortMode ? orderedForSort : sorted).map((payment) => (
                                 <TableRow
                                     key={payment.id}
                                     draggable={sortMode}

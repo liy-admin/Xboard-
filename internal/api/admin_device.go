@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -74,6 +75,51 @@ func deviceKeywordFilter(q *gorm.DB, kw string) *gorm.DB {
 	return q.Where("("+cond+")", args...)
 }
 
+// deviceSort 设备列表可排序的列（列键 → SQL 表达式）；display_code 由 deviceDisplayCodePage 单独处理。
+var deviceSort = map[string]string{
+	"device_id":     "b.device_id",
+	"current_user":  "u.email",
+	"claimed_trial": "b.claimed_trial",
+	"accounts":      "(SELECT COUNT(*) FROM v2_user x WHERE x.device_id = b.device_id)",
+	"trials":        "(SELECT COUNT(*) FROM v2_device_trial_log l WHERE l.device_id = b.device_id)",
+	"updated_at":    "b.updated_at",
+	"created_at":    "b.created_at",
+}
+
+// deviceDisplayCodePage 按设备码排序时，取出全部匹配设备、按设备码排好后返回当前页的 id。
+func deviceDisplayCodePage(c *gin.Context, build func() *gorm.DB, cur, size int) ([]int64, bool) {
+	ss := requestSorts(c)
+	if len(ss) == 0 || ss[0].ID != "display_code" {
+		return nil, false
+	}
+	var all []struct {
+		ID       int64
+		DeviceID string
+	}
+	build().Select("b.id, b.device_id").Scan(&all)
+	desc := ss[0].Desc
+	sort.SliceStable(all, func(i, j int) bool {
+		ci, cj := deviceDisplayCode(all[i].DeviceID), deviceDisplayCode(all[j].DeviceID)
+		if desc {
+			return ci > cj
+		}
+		return ci < cj
+	})
+	start := (cur - 1) * size
+	if start > len(all) {
+		start = len(all)
+	}
+	end := start + size
+	if end > len(all) {
+		end = len(all)
+	}
+	ids := make([]int64, 0, end-start)
+	for _, r := range all[start:end] {
+		ids = append(ids, r.ID)
+	}
+	return ids, true
+}
+
 func (a *App) adminDeviceFetch(c *gin.Context) {
 	cur, size := pageOf(c)
 	p := requestParams(c)
@@ -95,7 +141,20 @@ func (a *App) adminDeviceFetch(c *gin.Context) {
 		return
 	}
 	var rows []deviceRow
-	if err := build().Select(deviceRowSelect).Order("b.updated_at DESC, b.id DESC").
+	if ids, ok := deviceDisplayCodePage(c, build, cur, size); ok {
+		// 设备码是 device_id 的哈希，数据库里排不了：先在内存里排出这一页的 id，再按该顺序取行。
+		if len(ids) > 0 {
+			if err := build().Select(deviceRowSelect).Where("b.id IN ?", ids).Scan(&rows).Error; err != nil {
+				resp.Fail(c, 500, "查询设备失败："+err.Error())
+				return
+			}
+		}
+		pos := make(map[int64]int, len(ids))
+		for i, id := range ids {
+			pos[id] = i
+		}
+		sort.Slice(rows, func(i, j int) bool { return pos[rows[i].ID] < pos[rows[j].ID] })
+	} else if err := adminSortExprs(c, deviceSort, build().Select(deviceRowSelect)).Order("b.updated_at DESC, b.id DESC").
 		Offset((cur - 1) * size).Limit(size).Scan(&rows).Error; err != nil {
 		resp.Fail(c, 500, "查询设备失败："+err.Error())
 		return

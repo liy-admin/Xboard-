@@ -285,15 +285,28 @@ func safeIdent(s string) bool {
 
 // adminSorts 按白名单应用 sort（[{id, desc}]）。
 func adminSorts(c *gin.Context, allowed map[string]bool, q *gorm.DB) *gorm.DB {
+	exprs := make(map[string]string, len(allowed))
+	for k, ok := range allowed {
+		if ok {
+			exprs[k] = "`" + k + "`"
+		}
+	}
+	return adminSortExprs(c, exprs, q)
+}
+
+// adminSortExprs 按白名单应用 sort：键是前端的列键，值是写死在代码里的 SQL 排序表达式（从不拼接请求内容）。
+// 空值统一排在最后，与前端本地排序一致。
+func adminSortExprs(c *gin.Context, allowed map[string]string, q *gorm.DB) *gorm.DB {
 	for _, s := range requestSorts(c) {
-		if !allowed[s.ID] {
+		expr, ok := allowed[s.ID]
+		if !ok {
 			continue
 		}
 		dir := "ASC"
 		if s.Desc {
 			dir = "DESC"
 		}
-		q = q.Order(s.ID + " " + dir)
+		q = q.Order(expr + " IS NULL").Order(expr + " " + dir)
 	}
 	return q
 }

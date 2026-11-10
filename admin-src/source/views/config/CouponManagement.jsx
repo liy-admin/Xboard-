@@ -8,6 +8,7 @@ import { Input } from "../../components/Input.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Switch } from "../../components/Switch.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { SortableHead, useClientSort } from "../../components/SortableHead.jsx";
 import { SearchFilterToolbar } from "../../components/SearchFilterToolbar.jsx";
 import { FormDialog } from "../../components/FormDialog.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
@@ -221,6 +222,17 @@ export function CouponManagement() {
         });
     }, [items, search, typeFilter]);
 
+    const { sorted, sort, toggle: toggleSort } = useClientSort(filtered, {
+        id: (i) => Number(i.id),
+        show: (i) => (i.show ? 1 : 0),
+        name: (i) => i.name || "",
+        type: (i) => Number(i.type),
+        code: (i) => i.code || "",
+        limit_use: (i) => (i.limit_use == null ? null : Number(i.limit_use)),
+        limit_use_with_user: (i) => (i.limit_use_with_user == null ? null : Number(i.limit_use_with_user)),
+        validity: (i) => Number(i.ended_at) || null,
+    });
+
     const planOptions = useMemo(() => plans.map((p) => ({ value: p.id, label: p.name })), [plans]);
     const periodOptions = useMemo(() => PERIODS.map((p) => ({ value: p, label: t(`period.${p}`) })), [t]);
 
@@ -354,24 +366,24 @@ export function CouponManagement() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-16">{t("table.columns.id")}</TableHead>
-                            <TableHead className="w-16">{t("table.columns.show")}</TableHead>
-                            <TableHead>{t("table.columns.name")}</TableHead>
-                            <TableHead>{t("table.columns.type")}</TableHead>
-                            <TableHead>{t("table.columns.code")}</TableHead>
-                            <TableHead>{t("table.columns.limitUse")}</TableHead>
-                            <TableHead>{t("table.columns.limitUseWithUser")}</TableHead>
-                            <TableHead>{t("table.columns.validity")}</TableHead>
+                            <SortableHead className="w-16" sortKey="id" sort={sort} onSort={toggleSort}>{t("table.columns.id")}</SortableHead>
+                            <SortableHead className="w-16" sortKey="show" sort={sort} onSort={toggleSort}>{t("table.columns.show")}</SortableHead>
+                            <SortableHead sortKey="name" sort={sort} onSort={toggleSort}>{t("table.columns.name")}</SortableHead>
+                            <SortableHead sortKey="type" sort={sort} onSort={toggleSort}>{t("table.columns.type")}</SortableHead>
+                            <SortableHead sortKey="code" sort={sort} onSort={toggleSort}>{t("table.columns.code")}</SortableHead>
+                            <SortableHead sortKey="limit_use" sort={sort} onSort={toggleSort}>{t("table.columns.limitUse")}</SortableHead>
+                            <SortableHead sortKey="limit_use_with_user" sort={sort} onSort={toggleSort}>{t("table.columns.limitUseWithUser")}</SortableHead>
+                            <SortableHead sortKey="validity" sort={sort} onSort={toggleSort}>{t("table.columns.validity")}</SortableHead>
                             <TableHead className="w-32 text-right">{t("table.columns.actions")}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             <TableEmpty colSpan={9}>...</TableEmpty>
-                        ) : filtered.length === 0 ? (
+                        ) : sorted.length === 0 ? (
                             <TableEmpty colSpan={9}>-</TableEmpty>
                         ) : (
-                            filtered.map((item) => (
+                            sorted.map((item) => (
                                 <TableRow key={item.id}>
                                     <TableCell><Badge variant="outline" className="font-mono">{item.id}</Badge></TableCell>
                                     <TableCell>

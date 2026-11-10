@@ -6,6 +6,7 @@ import { Button } from "../../components/Button.jsx";
 import { Input } from "../../components/Input.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { SortableHead, useClientSort } from "../../components/SortableHead.jsx";
 import { SearchFilterToolbar } from "../../components/SearchFilterToolbar.jsx";
 import { FormDialog } from "../../components/FormDialog.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
@@ -42,6 +43,13 @@ export function GroupManagement() {
         if (!keyword) return items;
         return items.filter((g) => (g.name || "").toLowerCase().includes(keyword));
     }, [items, search]);
+
+    const { sorted, sort, toggle: toggleSort } = useClientSort(filtered, {
+        id: (i) => Number(i.id),
+        name: (i) => i.name || "",
+        users_count: (i) => Number(i.users_count ?? 0),
+        server_count: (i) => Number(i.server_count ?? 0),
+    });
 
     const openAdd = () => {
         setForm(EMPTY_FORM);
@@ -100,20 +108,20 @@ export function GroupManagement() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-16">{t("columns.id")}</TableHead>
-                            <TableHead>{t("columns.name")}</TableHead>
-                            <TableHead className="w-32">{t("columns.usersCount")}</TableHead>
-                            <TableHead className="w-32">{t("columns.serverCount")}</TableHead>
+                            <SortableHead className="w-16" sortKey="id" sort={sort} onSort={toggleSort}>{t("columns.id")}</SortableHead>
+                            <SortableHead sortKey="name" sort={sort} onSort={toggleSort}>{t("columns.name")}</SortableHead>
+                            <SortableHead className="w-32" sortKey="users_count" sort={sort} onSort={toggleSort}>{t("columns.usersCount")}</SortableHead>
+                            <SortableHead className="w-32" sortKey="server_count" sort={sort} onSort={toggleSort}>{t("columns.serverCount")}</SortableHead>
                             <TableHead className="w-32 text-right">{t("columns.actions")}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             <TableEmpty colSpan={5}>...</TableEmpty>
-                        ) : filtered.length === 0 ? (
+                        ) : sorted.length === 0 ? (
                             <TableEmpty colSpan={5}>-</TableEmpty>
                         ) : (
-                            filtered.map((item) => (
+                            sorted.map((item) => (
                                 <TableRow key={item.id}>
                                     <TableCell><Badge variant="outline" className="font-mono">{item.id}</Badge></TableCell>
                                     <TableCell className="font-medium">{item.name}</TableCell>

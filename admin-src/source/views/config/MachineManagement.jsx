@@ -8,6 +8,7 @@ import { Textarea } from "../../components/Textarea.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Switch } from "../../components/Switch.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { SortableHead, useClientSort } from "../../components/SortableHead.jsx";
 import { SearchFilterToolbar } from "../../components/SearchFilterToolbar.jsx";
 import { FormDialog } from "../../components/FormDialog.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
@@ -142,6 +143,14 @@ export function MachineManagement() {
         });
     }, [items, search, statusFilter, nodeFilter]);
 
+    const { sorted, sort, toggle: toggleSort } = useClientSort(filtered, {
+        name: (i) => i.name || "",
+        status: (i) => machineStatus(i),
+        load: (i) => (i.load_status ? loadPercents(i).cpu : null),
+        nodes: (i) => Number(i.servers_count ?? 0),
+        last_seen: (i) => Number(i.last_seen_at) || null,
+    });
+
     const openAdd = () => {
         setForm(EMPTY_FORM);
         setFormType("add");
@@ -261,21 +270,21 @@ export function MachineManagement() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>{t("columns.name")}</TableHead>
-                            <TableHead>{t("columns.status")}</TableHead>
-                            <TableHead className="w-[200px]">{t("columns.load")}</TableHead>
-                            <TableHead>{t("columns.nodes")}</TableHead>
-                            <TableHead>{t("columns.lastSeen")}</TableHead>
+                            <SortableHead sortKey="name" sort={sort} onSort={toggleSort}>{t("columns.name")}</SortableHead>
+                            <SortableHead sortKey="status" sort={sort} onSort={toggleSort}>{t("columns.status")}</SortableHead>
+                            <SortableHead className="w-[200px]" sortKey="load" sort={sort} onSort={toggleSort}>{t("columns.load")}</SortableHead>
+                            <SortableHead sortKey="nodes" sort={sort} onSort={toggleSort}>{t("columns.nodes")}</SortableHead>
+                            <SortableHead sortKey="last_seen" sort={sort} onSort={toggleSort}>{t("columns.lastSeen")}</SortableHead>
                             <TableHead className="w-40 text-right">{t("columns.actions")}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             <TableEmpty colSpan={6}>...</TableEmpty>
-                        ) : filtered.length === 0 ? (
+                        ) : sorted.length === 0 ? (
                             <TableEmpty colSpan={6}>-</TableEmpty>
                         ) : (
-                            filtered.map((item) => {
+                            sorted.map((item) => {
                                 const status = machineStatus(item);
                                 const percents = loadPercents(item);
                                 return (

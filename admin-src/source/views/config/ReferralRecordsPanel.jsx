@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "../../i18n/index.js";
 import { getReferralSummary, getReferralRecords } from "../../api/config.js";
+import { SortLabel, useClientSort } from "../../components/SortableHead.jsx";
 
 function fmtTime(ts) {
     if (!ts) return "-";
@@ -107,19 +108,25 @@ function TabButton({ active, onClick, children }) {
 }
 
 function SummaryTable({ rows, t }) {
+    const st = useClientSort(rows, {
+        inviter: (r) => r.inviter_email || null,
+        invite_count: (r) => Number(r.invite_count) || 0,
+        total_hours: (r) => Number(r.total_hours) || 0,
+        last_at: (r) => r.last_at || null,
+    });
     return (
         <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
                 <thead>
                     <tr className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                        <th className="px-4 py-2">{t("invite.referral_records.col_inviter")}</th>
-                        <th className="px-4 py-2">{t("invite.referral_records.col_invite_count")}</th>
-                        <th className="px-4 py-2">{t("invite.referral_records.col_total_hours")}</th>
-                        <th className="px-4 py-2">{t("invite.referral_records.col_last_at")}</th>
+                        <th className="px-4 py-2"><SortLabel sortKey="inviter" sort={st.sort} onSort={st.toggle}>{t("invite.referral_records.col_inviter")}</SortLabel></th>
+                        <th className="px-4 py-2"><SortLabel sortKey="invite_count" sort={st.sort} onSort={st.toggle}>{t("invite.referral_records.col_invite_count")}</SortLabel></th>
+                        <th className="px-4 py-2"><SortLabel sortKey="total_hours" sort={st.sort} onSort={st.toggle}>{t("invite.referral_records.col_total_hours")}</SortLabel></th>
+                        <th className="px-4 py-2"><SortLabel sortKey="last_at" sort={st.sort} onSort={st.toggle}>{t("invite.referral_records.col_last_at")}</SortLabel></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {rows.map((r) => (
+                    {st.sorted.map((r) => (
                         <tr key={r.inviter_id} className="border-b last:border-0">
                             <td className="px-4 py-2">
                                 <div className="font-medium">{r.inviter_email || "-"}</div>
@@ -141,20 +148,27 @@ function SummaryTable({ rows, t }) {
 }
 
 function RecordsTable({ rows, t }) {
+    const st = useClientSort(rows, {
+        inviter: (r) => r.inviter_email || null,
+        invitee: (r) => r.invitee_email || null,
+        trade_no: (r) => r.trade_no || null,
+        hours_credited: (r) => Number(r.hours_credited) || 0,
+        created_at: (r) => r.created_at || null,
+    });
     return (
         <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
                 <thead>
                     <tr className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                        <th className="px-4 py-2">{t("invite.referral_records.col_inviter")}</th>
-                        <th className="px-4 py-2">{t("invite.referral_records.col_invitee")}</th>
-                        <th className="px-4 py-2">{t("invite.referral_records.col_trade_no")}</th>
-                        <th className="px-4 py-2">{t("invite.referral_records.col_hours_credited")}</th>
-                        <th className="px-4 py-2">{t("invite.referral_records.col_time")}</th>
+                        <th className="px-4 py-2"><SortLabel sortKey="inviter" sort={st.sort} onSort={st.toggle}>{t("invite.referral_records.col_inviter")}</SortLabel></th>
+                        <th className="px-4 py-2"><SortLabel sortKey="invitee" sort={st.sort} onSort={st.toggle}>{t("invite.referral_records.col_invitee")}</SortLabel></th>
+                        <th className="px-4 py-2"><SortLabel sortKey="trade_no" sort={st.sort} onSort={st.toggle}>{t("invite.referral_records.col_trade_no")}</SortLabel></th>
+                        <th className="px-4 py-2"><SortLabel sortKey="hours_credited" sort={st.sort} onSort={st.toggle}>{t("invite.referral_records.col_hours_credited")}</SortLabel></th>
+                        <th className="px-4 py-2"><SortLabel sortKey="created_at" sort={st.sort} onSort={st.toggle}>{t("invite.referral_records.col_time")}</SortLabel></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {rows.map((r, i) => (
+                    {st.sorted.map((r, i) => (
                         <tr key={i} className="border-b last:border-0">
                             <td className="px-4 py-2">
                                 <div className="font-medium">{r.inviter_email || "-"}</div>

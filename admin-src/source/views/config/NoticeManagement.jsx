@@ -8,6 +8,7 @@ import { Textarea } from "../../components/Textarea.jsx";
 import { Switch } from "../../components/Switch.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { SortableHead, useClientSort } from "../../components/SortableHead.jsx";
 import { SearchFilterToolbar } from "../../components/SearchFilterToolbar.jsx";
 import { FormDialog } from "../../components/FormDialog.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
@@ -52,6 +53,12 @@ export function NoticeManagement() {
         if (!keyword) return notices;
         return notices.filter((n) => (n.title || "").toLowerCase().includes(keyword));
     }, [notices, search]);
+
+    const { sorted, sort, toggle: toggleSort } = useClientSort(filtered, {
+        id: (i) => Number(i.id),
+        show: (i) => (i.show ? 1 : 0),
+        title: (i) => i.title || "",
+    });
 
     const orderedForSort = useMemo(() => {
         const byId = new Map(notices.map((n) => [n.id, n]));
@@ -186,19 +193,19 @@ export function NoticeManagement() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-16">{t("table.columns.id")}</TableHead>
-                            <TableHead className="w-24">{t("table.columns.show")}</TableHead>
-                            <TableHead>{t("table.columns.title")}</TableHead>
+                            <SortableHead className="w-16" sortKey="id" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("table.columns.id")}</SortableHead>
+                            <SortableHead className="w-24" sortKey="show" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("table.columns.show")}</SortableHead>
+                            <SortableHead sortKey="title" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("table.columns.title")}</SortableHead>
                             <TableHead className="w-32 text-right">{t("table.columns.actions")}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             <TableEmpty colSpan={4}>...</TableEmpty>
-                        ) : (sortMode ? orderedForSort : filtered).length === 0 ? (
+                        ) : (sortMode ? orderedForSort : sorted).length === 0 ? (
                             <TableEmpty colSpan={4}>-</TableEmpty>
                         ) : (
-                            (sortMode ? orderedForSort : filtered).map((notice) => (
+                            (sortMode ? orderedForSort : sorted).map((notice) => (
                                 <TableRow
                                     key={notice.id}
                                     draggable={sortMode}

@@ -15,6 +15,7 @@ import { Textarea } from "../../components/Textarea.jsx";
 import { Switch } from "../../components/Switch.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { SortableHead, useClientSort } from "../../components/SortableHead.jsx";
 import { SearchFilterToolbar } from "../../components/SearchFilterToolbar.jsx";
 import { FormDialog } from "../../components/FormDialog.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
@@ -61,6 +62,13 @@ export function KnowledgeManagement() {
         if (!keyword) return items;
         return items.filter((k) => (k.title || "").toLowerCase().includes(keyword));
     }, [items, search]);
+
+    const { sorted, sort, toggle: toggleSort } = useClientSort(filtered, {
+        id: (i) => Number(i.id),
+        show: (i) => (i.show ? 1 : 0),
+        title: (i) => i.title || "",
+        category: (i) => i.category || "",
+    });
 
     const orderedForSort = useMemo(() => {
         const byId = new Map(items.map((k) => [k.id, k]));
@@ -191,20 +199,20 @@ export function KnowledgeManagement() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-16">{t("columns.id")}</TableHead>
-                            <TableHead className="w-20">{t("columns.status")}</TableHead>
-                            <TableHead>{t("columns.title")}</TableHead>
-                            <TableHead>{t("columns.category")}</TableHead>
+                            <SortableHead className="w-16" sortKey="id" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("columns.id")}</SortableHead>
+                            <SortableHead className="w-20" sortKey="show" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("columns.status")}</SortableHead>
+                            <SortableHead sortKey="title" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("columns.title")}</SortableHead>
+                            <SortableHead sortKey="category" sort={sort} onSort={toggleSort} disabled={sortMode}>{t("columns.category")}</SortableHead>
                             <TableHead className="w-32 text-right">{t("columns.actions")}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             <TableEmpty colSpan={5}>...</TableEmpty>
-                        ) : (sortMode ? orderedForSort : filtered).length === 0 ? (
+                        ) : (sortMode ? orderedForSort : sorted).length === 0 ? (
                             <TableEmpty colSpan={5}>-</TableEmpty>
                         ) : (
-                            (sortMode ? orderedForSort : filtered).map((item) => (
+                            (sortMode ? orderedForSort : sorted).map((item) => (
                                 <TableRow
                                     key={item.id}
                                     draggable={sortMode}

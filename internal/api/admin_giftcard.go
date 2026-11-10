@@ -265,6 +265,25 @@ func maskEmail(e string) string {
 	return e[:3] + "***@***"
 }
 
+// giftCodeSort / giftUsageSort 兑换码与使用记录列表可排序的列（列键 → SQL 表达式）。
+var giftCodeSort = map[string]string{
+	"id": "v2_gift_card_code.id", "code": "v2_gift_card_code.code", "status": "v2_gift_card_code.status",
+	"expires_at": "v2_gift_card_code.expires_at", "usage_count": "v2_gift_card_code.usage_count",
+	"max_usage": "v2_gift_card_code.max_usage", "created_at": "v2_gift_card_code.created_at",
+	"template_name": "(SELECT t.name FROM v2_gift_card_template t WHERE t.id = v2_gift_card_code.template_id)",
+}
+
+var giftCodeFilter = map[string]bool{"code": true, "status": true, "template_id": true, "batch_id": true}
+
+var giftUsageSort = map[string]string{
+	"id": "v2_gift_card_usage.id", "multiplier_applied": "v2_gift_card_usage.multiplier_applied",
+	"ip_address": "v2_gift_card_usage.ip_address", "created_at": "v2_gift_card_usage.created_at",
+	"rewards_given": "CAST(v2_gift_card_usage.rewards_given AS CHAR)", "invite_rewards": "CAST(v2_gift_card_usage.invite_rewards AS CHAR)",
+	"code":          "(SELECT gc.code FROM v2_gift_card_code gc WHERE gc.id = v2_gift_card_usage.code_id)",
+	"template_name": "(SELECT t.name FROM v2_gift_card_template t WHERE t.id = v2_gift_card_usage.template_id)",
+	"user_email":    "(SELECT u.email FROM v2_user u WHERE u.id = v2_gift_card_usage.user_id)",
+}
+
 func (a *App) giftCodes(c *gin.Context) {
 	cur, size := pageOf(c)
 	q := a.S.DB.Model(&model.GiftCardCode{})
@@ -277,10 +296,12 @@ func (a *App) giftCodes(c *gin.Context) {
 	if v := c.Query("status"); v != "" {
 		q = q.Where("status = ?", v)
 	}
+	// 页面把兑换码搜索、状态、模板放在 filter 数组里提交。
+	q = adminFilters(c, giftCodeFilter, q)
 	var total int64
 	q.Count(&total)
 	var rows []model.GiftCardCode
-	q.Order("created_at DESC").Offset((cur - 1) * size).Limit(size).Find(&rows)
+	adminSortExprs(c, giftCodeSort, q).Order("v2_gift_card_code.created_at DESC").Offset((cur - 1) * size).Limit(size).Find(&rows)
 	out := make([]gin.H, 0, len(rows))
 	for _, code := range rows {
 		var t model.GiftCardTemplate
@@ -361,17 +382,32 @@ func (a *App) giftUsages(c *gin.Context) {
 	if v := c.Query("user_id"); v != "" {
 		q = q.Where("user_id = ?", v)
 	}
+	// 页面按用户邮箱搜索：filter [{id: "user_email", value}]。
+	for _, f := range requestFilters(c) {
+		if f.ID != "user_email" {
+			continue
+		}
+		if v, ok := f.Value.(string); ok && strings.TrimSpace(v) != "" {
+			q = q.Where("user_id IN (SELECT id FROM v2_user WHERE email LIKE ?)", "%"+escapeLike(strings.TrimSpace(v))+"%")
+		}
+	}
 	var total int64
 	q.Count(&total)
 	var rows []model.GiftCardUsage
-	q.Order("created_at DESC").Offset((cur - 1) * size).Limit(size).Find(&rows)
+	adminSortExprs(c, giftUsageSort, q).Order("v2_gift_card_usage.created_at DESC").Offset((cur - 1) * size).Limit(size).Find(&rows)
 	out := make([]gin.H, 0, len(rows))
 	for _, r := range rows {
 		var t model.GiftCardTemplate
 		a.S.DB.Select("name", "type").First(&t, r.TemplateID)
-		out = append(out, gin.H{"id": r.ID, "code_id": r.CodeID, "template_id": r.TemplateID, "template_name": t.Name,
-			"user_id": r.UserID, "invite_user_id": r.InviteUserID, "rewards_given": r.RewardsGiven,
-			"invite_rewards": r.InviteRewards, "multiplier_applied": r.MultiplierApplied, "created_at": r.CreatedAt})
+		// 使用记录页显示兑换码、用户邮箱与 IP，这里一并带上。
+		var code model.GiftCardCode
+		a.S.DB.Select("code").First(&code, r.CodeID)
+		var u model.User
+		a.S.DB.Select("email").First(&u, r.UserID)
+		out = append(out, gin.H{"id": r.ID, "code_id": r.CodeID, "code": code.Code, "template_id": r.TemplateID, "template_name": t.Name,
+			"user_id": r.UserID, "user_email": u.Email, "invite_user_id": r.InviteUserID, "rewards_given": r.RewardsGiven,
+			"invite_rewards": r.InviteRewards, "multiplier_applied": r.MultiplierApplied, "ip_address": r.IPAddress,
+			"created_at": r.CreatedAt})
 	}
 	paginateJSON(c, total, cur, size, out)
 }

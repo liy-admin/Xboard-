@@ -193,6 +193,25 @@ func (a *App) orderView(o model.Order) gin.H {
 	}
 }
 
+// adminOrderSort 订单列表可排序的列（列键 → SQL 表达式）：普通列沿用过滤白名单，另加关联与计算列。
+var adminOrderSort = func() map[string]string {
+	m := map[string]string{}
+	for k := range adminOrderFilter {
+		m[k] = "v2_order." + k
+	}
+	m["plan"] = "(SELECT p.name FROM v2_plan p WHERE p.id = v2_order.plan_id)"
+	m["payment"] = "(SELECT pm.name FROM v2_payment pm WHERE pm.id = v2_order.payment_id)"
+	m["payer"] = "(SELECT u.email FROM v2_user u WHERE u.id = v2_order.user_id)"
+	// 周期按时长排，新旧两种周期键都认；流量包排最后。
+	m["period"] = "CASE v2_order.period" +
+		" WHEN 'weekly' THEN 7 WHEN 'week_price' THEN 7 WHEN 'monthly' THEN 30 WHEN 'month_price' THEN 30" +
+		" WHEN 'quarterly' THEN 90 WHEN 'quarter_price' THEN 90 WHEN 'half_yearly' THEN 180 WHEN 'half_year_price' THEN 180" +
+		" WHEN 'yearly' THEN 365 WHEN 'year_price' THEN 365 WHEN 'two_yearly' THEN 730 WHEN 'two_year_price' THEN 730" +
+		" WHEN 'three_yearly' THEN 1095 WHEN 'three_year_price' THEN 1095 WHEN 'onetime' THEN 100000 WHEN 'onetime_price' THEN 100000" +
+		" ELSE 200000 END"
+	return m
+}()
+
 func (a *App) adminOrderFetch(c *gin.Context) {
 	cur, size := pageOf(c)
 	q := a.S.DB.Model(&model.Order{})
@@ -203,7 +222,7 @@ func (a *App) adminOrderFetch(c *gin.Context) {
 	var total int64
 	q.Count(&total)
 	var rows []model.Order
-	adminSorts(c, adminOrderFilter, q).Order("created_at DESC").Offset((cur - 1) * size).Limit(size).Find(&rows)
+	adminSortExprs(c, adminOrderSort, q).Order("v2_order.created_at DESC").Offset((cur - 1) * size).Limit(size).Find(&rows)
 	users, payments := a.orderListRefs(rows)
 	out := make([]gin.H, 0, len(rows))
 	for _, o := range rows {

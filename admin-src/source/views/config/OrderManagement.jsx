@@ -10,6 +10,7 @@ import { Button } from "../../components/Button.jsx";
 import { Input } from "../../components/Input.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { SortableHead, useServerSort } from "../../components/SortableHead.jsx";
 import { SearchFilterToolbar } from "../../components/SearchFilterToolbar.jsx";
 import { OrderCleanupCard } from "./OrderCleanupCard.jsx";
 import { FormDialog } from "../../components/FormDialog.jsx";
@@ -81,6 +82,7 @@ export function OrderManagement() {
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
+    const { sort, toggle: toggleSort, sortParam } = useServerSort(() => setPage(1));
 
     // 从用户列表点「订单」进入时地址里带 ?user_id=eq:<ID>：只显示该用户的订单。
     const userIdParam = useQueryParam("user_id");
@@ -118,7 +120,7 @@ export function OrderManagement() {
 
     const load = () => {
         setLoading(true);
-        return fetchOrders({ pageSize: PAGE_SIZE, current: page, filter: buildFilter(), sort: [] })
+        return fetchOrders({ pageSize: PAGE_SIZE, current: page, filter: buildFilter(), sort: sortParam })
             .then((res) => {
                 setItems(res?.data || []);
                 setTotal(res?.total || 0);
@@ -129,7 +131,7 @@ export function OrderManagement() {
     useEffect(() => {
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [auth.token, page, filtersVersion, userIdFilter]);
+    }, [auth.token, page, filtersVersion, userIdFilter, sort.key, sort.dir]);
 
     // 切换用户筛选时回到第一页
     useEffect(() => {
@@ -304,15 +306,15 @@ export function OrderManagement() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>{t("table.columns.tradeNo")}</TableHead>
-                            <TableHead>{t("table.columns.type")}</TableHead>
-                            <TableHead>{t("table.columns.plan")}</TableHead>
-                            <TableHead>{t("table.columns.period")}</TableHead>
-                            <TableHead>{t("table.columns.amount")}</TableHead>
-                            <TableHead>{t("table.columns.status")}</TableHead>
-                            <TableHead>{t("table.columns.payment", "支付方式")}</TableHead>
-                            <TableHead>{t("table.columns.payer", "支付人")}</TableHead>
-                            <TableHead>{t("table.columns.createdAt")}</TableHead>
+                            <SortableHead sortKey="trade_no" sort={sort} onSort={toggleSort}>{t("table.columns.tradeNo")}</SortableHead>
+                            <SortableHead sortKey="type" sort={sort} onSort={toggleSort}>{t("table.columns.type")}</SortableHead>
+                            <SortableHead sortKey="plan" sort={sort} onSort={toggleSort}>{t("table.columns.plan")}</SortableHead>
+                            <SortableHead sortKey="period" sort={sort} onSort={toggleSort}>{t("table.columns.period")}</SortableHead>
+                            <SortableHead sortKey="total_amount" sort={sort} onSort={toggleSort}>{t("table.columns.amount")}</SortableHead>
+                            <SortableHead sortKey="status" sort={sort} onSort={toggleSort}>{t("table.columns.status")}</SortableHead>
+                            <SortableHead sortKey="payment" sort={sort} onSort={toggleSort}>{t("table.columns.payment", "支付方式")}</SortableHead>
+                            <SortableHead sortKey="payer" sort={sort} onSort={toggleSort}>{t("table.columns.payer", "支付人")}</SortableHead>
+                            <SortableHead sortKey="created_at" sort={sort} onSort={toggleSort}>{t("table.columns.createdAt")}</SortableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>

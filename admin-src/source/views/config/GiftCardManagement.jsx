@@ -20,6 +20,7 @@ import { Badge } from "../../components/Badge.jsx";
 import { Switch } from "../../components/Switch.jsx";
 import { Card } from "../../components/Card.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { SortableHead, useClientSort, useServerSort } from "../../components/SortableHead.jsx";
 import { SearchFilterToolbar } from "../../components/SearchFilterToolbar.jsx";
 import { FormDialog } from "../../components/FormDialog.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
@@ -189,6 +190,16 @@ function TemplatesTab({ t, plans, onChanged }) {
             return true;
         });
     }, [items, search, typeFilter]);
+
+    const { sorted, sort, toggle: toggleSort } = useClientSort(filtered, {
+        id: (i) => Number(i.id),
+        name: (i) => i.name || "",
+        type: (i) => Number(i.type),
+        status: (i) => (i.status ? 1 : 0),
+        sort: (i) => (i.sort == null ? null : Number(i.sort)),
+        rewards: (i) => rewardsSummary(i.rewards, i.type, t).join(" "),
+        created_at: (i) => Number(i.created_at) || null,
+    });
 
     const planOptions = useMemo(() => plans.map((p) => ({ value: p.id, label: p.name })), [plans]);
 
@@ -369,23 +380,23 @@ function TemplatesTab({ t, plans, onChanged }) {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-16">{t("template.table.columns.id")}</TableHead>
-                        <TableHead>{t("template.table.columns.name")}</TableHead>
-                        <TableHead>{t("template.table.columns.type")}</TableHead>
-                        <TableHead>{t("template.table.columns.status")}</TableHead>
-                        <TableHead className="w-16">{t("template.table.columns.sort")}</TableHead>
-                        <TableHead>{t("template.table.columns.rewards")}</TableHead>
-                        <TableHead>{t("template.table.columns.created_at")}</TableHead>
+                        <SortableHead className="w-16" sortKey="id" sort={sort} onSort={toggleSort}>{t("template.table.columns.id")}</SortableHead>
+                        <SortableHead sortKey="name" sort={sort} onSort={toggleSort}>{t("template.table.columns.name")}</SortableHead>
+                        <SortableHead sortKey="type" sort={sort} onSort={toggleSort}>{t("template.table.columns.type")}</SortableHead>
+                        <SortableHead sortKey="status" sort={sort} onSort={toggleSort}>{t("template.table.columns.status")}</SortableHead>
+                        <SortableHead className="w-16" sortKey="sort" sort={sort} onSort={toggleSort}>{t("template.table.columns.sort")}</SortableHead>
+                        <SortableHead sortKey="rewards" sort={sort} onSort={toggleSort}>{t("template.table.columns.rewards")}</SortableHead>
+                        <SortableHead sortKey="created_at" sort={sort} onSort={toggleSort}>{t("template.table.columns.created_at")}</SortableHead>
                         <TableHead className="text-right">{t("template.table.columns.actions")}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {loading ? (
                         <TableEmpty colSpan={8}>...</TableEmpty>
-                    ) : filtered.length === 0 ? (
+                    ) : sorted.length === 0 ? (
                         <TableEmpty colSpan={8}>-</TableEmpty>
                     ) : (
-                        filtered.map((item) => {
+                        sorted.map((item) => {
                             const summary = rewardsSummary(item.rewards, item.type, t);
                             return (
                                 <TableRow key={item.id}>
@@ -626,6 +637,8 @@ function CodesTab({ t, templates }) {
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [templateFilter, setTemplateFilter] = useState("all");
+    const codeSort = useServerSort(() => setPage(1));
+    const { sort, toggle: toggleSort } = codeSort;
 
     const [genOpen, setGenOpen] = useState(false);
     const [genForm, setGenForm] = useState(EMPTY_GENERATE);
@@ -641,7 +654,7 @@ function CodesTab({ t, templates }) {
 
     const load = () => {
         setLoading(true);
-        return fetchGiftCardCodes({ per_page: CODE_PAGE_SIZE, page, filter: buildFilter(), sort: [] })
+        return fetchGiftCardCodes({ per_page: CODE_PAGE_SIZE, page, filter: buildFilter(), sort: codeSort.sortParam })
             .then((res) => {
                 setItems(res?.data || []);
                 setTotal(res?.total || 0);
@@ -649,7 +662,7 @@ function CodesTab({ t, templates }) {
             .finally(() => setLoading(false));
     };
 
-    useEffect(() => { load(); }, [page]);
+    useEffect(() => { load(); }, [page, sort.key, sort.dir]);
 
     const refetch = () => {
         if (page === 1) load();
@@ -744,14 +757,14 @@ function CodesTab({ t, templates }) {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-16">{t("code.table.columns.id")}</TableHead>
-                        <TableHead>{t("code.table.columns.code")}</TableHead>
-                        <TableHead>{t("code.table.columns.template_name")}</TableHead>
-                        <TableHead>{t("code.table.columns.status")}</TableHead>
-                        <TableHead>{t("code.table.columns.expires_at")}</TableHead>
-                        <TableHead>{t("code.table.columns.usage_count")}</TableHead>
-                        <TableHead>{t("code.table.columns.max_usage")}</TableHead>
-                        <TableHead>{t("code.table.columns.created_at")}</TableHead>
+                        <SortableHead className="w-16" sortKey="id" sort={sort} onSort={toggleSort}>{t("code.table.columns.id")}</SortableHead>
+                        <SortableHead sortKey="code" sort={sort} onSort={toggleSort}>{t("code.table.columns.code")}</SortableHead>
+                        <SortableHead sortKey="template_name" sort={sort} onSort={toggleSort}>{t("code.table.columns.template_name")}</SortableHead>
+                        <SortableHead sortKey="status" sort={sort} onSort={toggleSort}>{t("code.table.columns.status")}</SortableHead>
+                        <SortableHead sortKey="expires_at" sort={sort} onSort={toggleSort}>{t("code.table.columns.expires_at")}</SortableHead>
+                        <SortableHead sortKey="usage_count" sort={sort} onSort={toggleSort}>{t("code.table.columns.usage_count")}</SortableHead>
+                        <SortableHead sortKey="max_usage" sort={sort} onSort={toggleSort}>{t("code.table.columns.max_usage")}</SortableHead>
+                        <SortableHead sortKey="created_at" sort={sort} onSort={toggleSort}>{t("code.table.columns.created_at")}</SortableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -842,11 +855,13 @@ function UsagesTab({ t }) {
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
+    const usageSort = useServerSort(() => setPage(1));
+    const { sort, toggle: toggleSort } = usageSort;
 
     const load = () => {
         setLoading(true);
         const filter = search.trim() ? [{ id: "user_email", value: search.trim() }] : [];
-        return fetchGiftCardUsages({ per_page: CODE_PAGE_SIZE, page, filter, sort: [] })
+        return fetchGiftCardUsages({ per_page: CODE_PAGE_SIZE, page, filter, sort: usageSort.sortParam })
             .then((res) => {
                 setItems(res?.data || []);
                 setTotal(res?.total || 0);
@@ -854,7 +869,7 @@ function UsagesTab({ t }) {
             .finally(() => setLoading(false));
     };
 
-    useEffect(() => { load(); }, [page]);
+    useEffect(() => { load(); }, [page, sort.key, sort.dir]);
 
     const refetch = () => {
         if (page === 1) load();
@@ -876,15 +891,15 @@ function UsagesTab({ t }) {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-16">{t("usage.table.columns.id")}</TableHead>
-                        <TableHead>{t("usage.table.columns.code")}</TableHead>
-                        <TableHead>{t("usage.table.columns.template_name")}</TableHead>
-                        <TableHead>{t("usage.table.columns.user_email")}</TableHead>
-                        <TableHead>{t("usage.table.columns.rewards_given")}</TableHead>
-                        <TableHead>{t("usage.table.columns.invite_rewards")}</TableHead>
-                        <TableHead>{t("usage.table.columns.multiplier_applied")}</TableHead>
-                        <TableHead>{t("usage.table.columns.ip_address")}</TableHead>
-                        <TableHead>{t("usage.table.columns.created_at")}</TableHead>
+                        <SortableHead className="w-16" sortKey="id" sort={sort} onSort={toggleSort}>{t("usage.table.columns.id")}</SortableHead>
+                        <SortableHead sortKey="code" sort={sort} onSort={toggleSort}>{t("usage.table.columns.code")}</SortableHead>
+                        <SortableHead sortKey="template_name" sort={sort} onSort={toggleSort}>{t("usage.table.columns.template_name")}</SortableHead>
+                        <SortableHead sortKey="user_email" sort={sort} onSort={toggleSort}>{t("usage.table.columns.user_email")}</SortableHead>
+                        <SortableHead sortKey="rewards_given" sort={sort} onSort={toggleSort}>{t("usage.table.columns.rewards_given")}</SortableHead>
+                        <SortableHead sortKey="invite_rewards" sort={sort} onSort={toggleSort}>{t("usage.table.columns.invite_rewards")}</SortableHead>
+                        <SortableHead sortKey="multiplier_applied" sort={sort} onSort={toggleSort}>{t("usage.table.columns.multiplier_applied")}</SortableHead>
+                        <SortableHead sortKey="ip_address" sort={sort} onSort={toggleSort}>{t("usage.table.columns.ip_address")}</SortableHead>
+                        <SortableHead sortKey="created_at" sort={sort} onSort={toggleSort}>{t("usage.table.columns.created_at")}</SortableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>

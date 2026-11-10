@@ -301,11 +301,20 @@ func pageOf(c *gin.Context) (int, int) {
 	p := requestParams(c)
 	cur, _ := anyInt(p["current"])
 	if cur < 1 {
+		cur, _ = anyInt(p["page"]) // 礼品卡等页面用 page / per_page
+	}
+	if cur < 1 {
 		cur = 1
 	}
 	size, _ := anyInt(p["pageSize"])
 	if size < 1 {
+		size, _ = anyInt(p["per_page"])
+	}
+	if size < 1 {
 		size = 10
+	}
+	if size > 1000 {
+		size = 1000
 	}
 	return int(cur), int(size)
 }

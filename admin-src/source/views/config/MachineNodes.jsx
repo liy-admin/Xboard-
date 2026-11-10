@@ -6,6 +6,7 @@ import { Button } from "../../components/Button.jsx";
 import { Input } from "../../components/Input.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Switch } from "../../components/Switch.jsx";
+import { SortLabel, useClientSort } from "../../components/SortableHead.jsx";
 import { Dialog } from "../../components/Dialog.jsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
 import { NodeFormDialog } from "./NodeFormDialog.jsx";
@@ -50,6 +51,14 @@ export function MachineNodes({ machine, machines, onChanged }) {
     const { t } = useTranslation("machine");
     const { t: ts } = useTranslation("server");
     const [nodes, setNodes] = useState([]);
+    const nodeSort = useClientSort(nodes, {
+        id: (n) => Number(n.id),
+        name: (n) => n.name || "",
+        type: (n) => n.type || "",
+        host: (n) => `${n.host || ""}:${n.port || ""}`,
+        show: (n) => (n.show ? 1 : 0),
+        enabled: (n) => (n.enabled == null || n.enabled ? 1 : 0),
+    });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [busyId, setBusyId] = useState(null);
@@ -205,17 +214,17 @@ export function MachineNodes({ machine, machines, onChanged }) {
                     <table className="w-full text-sm">
                         <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
                             <tr>
-                                <th className="p-2">{t("detail.nodeId")}</th>
-                                <th className="p-2">{t("detail.nodeName")}</th>
-                                <th className="p-2">{t("detail.nodeType")}</th>
-                                <th className="p-2">{t("detail.nodeHost")}</th>
-                                <th className="p-2 text-center">{t("detail.nodeShow")}</th>
-                                <th className="p-2 text-center">{t("detail.nodeEnabled")}</th>
+                                <th className="p-2"><SortLabel sortKey="id" sort={nodeSort.sort} onSort={nodeSort.toggle}>{t("detail.nodeId")}</SortLabel></th>
+                                <th className="p-2"><SortLabel sortKey="name" sort={nodeSort.sort} onSort={nodeSort.toggle}>{t("detail.nodeName")}</SortLabel></th>
+                                <th className="p-2"><SortLabel sortKey="type" sort={nodeSort.sort} onSort={nodeSort.toggle}>{t("detail.nodeType")}</SortLabel></th>
+                                <th className="p-2"><SortLabel sortKey="host" sort={nodeSort.sort} onSort={nodeSort.toggle}>{t("detail.nodeHost")}</SortLabel></th>
+                                <th className="p-2 text-center"><SortLabel sortKey="show" sort={nodeSort.sort} onSort={nodeSort.toggle}>{t("detail.nodeShow")}</SortLabel></th>
+                                <th className="p-2 text-center"><SortLabel sortKey="enabled" sort={nodeSort.sort} onSort={nodeSort.toggle}>{t("detail.nodeEnabled")}</SortLabel></th>
                                 <th className="p-2 text-right">{t("detail.nodeActions")}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {nodes.map((node) => {
+                            {nodeSort.sorted.map((node) => {
                                 const sec = securityLabel(node);
                                 const busy = busyId === node.id;
                                 const enabled = node.enabled == null ? true : Boolean(node.enabled);

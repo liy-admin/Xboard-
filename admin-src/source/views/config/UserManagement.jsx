@@ -23,6 +23,7 @@ import { Textarea } from "../../components/Textarea.jsx";
 import { Badge } from "../../components/Badge.jsx";
 import { Switch } from "../../components/Switch.jsx";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "../../components/Table.jsx";
+import { SortableHead, useClientSort, useServerSort } from "../../components/SortableHead.jsx";
 import { UserFilterBar } from "./UserFilterBar.jsx";
 import { buildFilter as buildUserFilter } from "./userFilter.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.jsx";
@@ -704,6 +705,12 @@ function OnlineUsersDialog({ open, onOpenChange, t }) {
         return () => { cancelled = true; clearInterval(timer); };
     }, [open]);
 
+    const onlineSort = useClientSort(data.users, {
+        user: (u) => u.email || "",
+        devices: (u) => Number(u.device_count) || 0,
+        expire: (u) => (u.expired_at == null ? null : Number(u.expired_at)),
+    });
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange} className="sm:max-w-2xl">
             <div className="max-h-[90vh] overflow-y-auto p-6">
@@ -713,9 +720,9 @@ function OnlineUsersDialog({ open, onOpenChange, t }) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>{t("online.columns.user")}</TableHead>
-                                <TableHead>{t("online.columns.devices")}</TableHead>
-                                <TableHead>{t("online.columns.expire")}</TableHead>
+                                <SortableHead sortKey="user" sort={onlineSort.sort} onSort={onlineSort.toggle}>{t("online.columns.user")}</SortableHead>
+                                <SortableHead sortKey="devices" sort={onlineSort.sort} onSort={onlineSort.toggle}>{t("online.columns.devices")}</SortableHead>
+                                <SortableHead sortKey="expire" sort={onlineSort.sort} onSort={onlineSort.toggle}>{t("online.columns.expire")}</SortableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -724,7 +731,7 @@ function OnlineUsersDialog({ open, onOpenChange, t }) {
                             ) : data.users.length === 0 ? (
                                 <TableEmpty colSpan={3}>{t("online.empty")}</TableEmpty>
                             ) : (
-                                data.users.map((u) => {
+                                onlineSort.sorted.map((u) => {
                                     const expired = u.expired_at != null && u.expired_at < Date.now() / 1000;
                                     return (
                                         <TableRow key={u.user_id}>
@@ -780,13 +787,14 @@ export function UserManagement() {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [onlineOpen, setOnlineOpen] = useState(false);
     const [onlineCount, setOnlineCount] = useState(null);
+    const { sort, toggle: toggleSort, sortParam } = useServerSort(() => setPage(1));
 
     // 列表、群发邮件、导出、批量封禁都用这一份条件，保证「所见即所操作」。
     const buildFilter = () => buildUserFilter({ conditions, mode, search });
 
     const load = () => {
         setLoading(true);
-        return fetchUsers({ pageSize: PAGE_SIZE, current: page, filter: buildFilter(), sort: [] })
+        return fetchUsers({ pageSize: PAGE_SIZE, current: page, filter: buildFilter(), sort: sortParam })
             .then((res) => {
                 setItems(res?.data || []);
                 setTotal(res?.total ?? 0);
@@ -797,7 +805,7 @@ export function UserManagement() {
     useEffect(() => {
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [auth.token, page, filtersVersion]);
+    }, [auth.token, page, filtersVersion, sort.key, sort.dir]);
 
     useEffect(() => {
         fetchPlans().then((res) => setPlans(res?.data || [])).catch(() => setPlans([]));
@@ -939,19 +947,19 @@ export function UserManagement() {
                             <TableHead className="w-8">
                                 <input type="checkbox" checked={items.length > 0 && items.every((u) => selectedIds.has(u.id))} onChange={(e) => toggleAll(e.target.checked)} />
                             </TableHead>
-                            <TableHead>{t("columns.id")}</TableHead>
-                            <TableHead>{t("columns.email")}</TableHead>
-                            <TableHead>{t("columns.online_count")}</TableHead>
-                            <TableHead>{t("columns.status")}</TableHead>
-                            <TableHead>{t("columns.subscription")}</TableHead>
-                            <TableHead>{t("columns.group")}</TableHead>
-                            <TableHead>{t("columns.used_traffic")}</TableHead>
-                            <TableHead>{t("columns.total_traffic")}</TableHead>
-                            <TableHead>{t("columns.expire_time")}</TableHead>
-                            <TableHead>{t("columns.balance")}</TableHead>
-                            <TableHead>{t("columns.invite_code")}</TableHead>
-                            <TableHead>{t("columns.inviter")}</TableHead>
-                            <TableHead>{t("columns.register_time")}</TableHead>
+                            <SortableHead sortKey="id" sort={sort} onSort={toggleSort}>{t("columns.id")}</SortableHead>
+                            <SortableHead sortKey="email" sort={sort} onSort={toggleSort}>{t("columns.email")}</SortableHead>
+                            <SortableHead sortKey="logged_in_devices" sort={sort} onSort={toggleSort}>{t("columns.online_count")}</SortableHead>
+                            <SortableHead sortKey="banned" sort={sort} onSort={toggleSort}>{t("columns.status")}</SortableHead>
+                            <SortableHead sortKey="plan" sort={sort} onSort={toggleSort}>{t("columns.subscription")}</SortableHead>
+                            <SortableHead sortKey="group" sort={sort} onSort={toggleSort}>{t("columns.group")}</SortableHead>
+                            <SortableHead sortKey="total_used" sort={sort} onSort={toggleSort}>{t("columns.used_traffic")}</SortableHead>
+                            <SortableHead sortKey="transfer_enable" sort={sort} onSort={toggleSort}>{t("columns.total_traffic")}</SortableHead>
+                            <SortableHead sortKey="expired_at" sort={sort} onSort={toggleSort}>{t("columns.expire_time")}</SortableHead>
+                            <SortableHead sortKey="balance" sort={sort} onSort={toggleSort}>{t("columns.balance")}</SortableHead>
+                            <SortableHead sortKey="invite_code" sort={sort} onSort={toggleSort}>{t("columns.invite_code")}</SortableHead>
+                            <SortableHead sortKey="inviter" sort={sort} onSort={toggleSort}>{t("columns.inviter")}</SortableHead>
+                            <SortableHead sortKey="created_at" sort={sort} onSort={toggleSort}>{t("columns.register_time")}</SortableHead>
                             <TableHead className="w-56 text-right">{t("columns.actions")}</TableHead>
                         </TableRow>
                     </TableHeader>
