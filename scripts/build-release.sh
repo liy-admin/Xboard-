@@ -3,6 +3,7 @@
 #
 #   bash scripts/build-release.sh                 # 默认 linux/amd64 + linux/arm64
 #   TARGETS="linux/amd64" bash scripts/build-release.sh
+#   TARGETS="windows/amd64" bash scripts/build-release.sh   # Windows 版打成 .zip，二进制为 xboard.exe
 #   VERSION=1.2.3 bash scripts/build-release.sh
 #
 # 会先构建管理端前端（admin-src/source，需要 Node.js / npm；输出到 public/assets/admin）。
@@ -17,7 +18,7 @@ cd "$HERE"
 
 VERSION="${VERSION:-$(date +%Y%m%d)-$(git rev-parse --short HEAD 2>/dev/null || echo local)}"
 TARGETS="${TARGETS:-linux/amd64 linux/arm64}"
-OUT="$HERE/dist"
+OUT="${OUT:-$HERE/dist}"
 
 if [ "${SKIP_ADMIN_BUILD:-0}" != "1" ]; then
   echo "==> 构建管理端前端"
@@ -44,9 +45,10 @@ for t in $TARGETS; do
   name="xboard-${VERSION}-${os}-${arch}"
   dir="$OUT/$name"
   mkdir -p "$dir/deploy"
+  bin="xboard"; [ "$os" = "windows" ] && bin="xboard.exe"
   echo "==> 构建 $os/$arch"
   CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath \
-    -ldflags "-s -w -X main.version=${VERSION}" -o "$dir/xboard" ./cmd/xboard
+    -ldflags "-s -w -X main.version=${VERSION}" -o "$dir/$bin" ./cmd/xboard
   cp .env.example "$dir/.env.example"
   cp deploy/xboard.service deploy/nginx.conf.example "$dir/deploy/"
   cp DEPLOY.md GO-LIVE.md "$dir/"
@@ -59,10 +61,17 @@ for t in $TARGETS; do
   # 二进制 0755，其余文件 0644，属主 root:root。
   PY="$(command -v python3 || command -v python || true)"
   if [ -n "$PY" ]; then
-    "$PY" - "$OUT" "$name" <<'PYEOF'
-import os, sys, tarfile
-out, name = sys.argv[1], sys.argv[2]
+    "$PY" - "$OUT" "$name" "$os" <<'PYEOF'
+import os, sys, tarfile, zipfile
+out, name, goos = sys.argv[1], sys.argv[2], sys.argv[3]
 root = os.path.join(out, name)
+if goos == "windows":
+    with zipfile.ZipFile(os.path.join(out, name + ".zip"), "w", zipfile.ZIP_DEFLATED) as zf:
+        for dirpath, dirs, files in os.walk(root):
+            for f in sorted(files):
+                full = os.path.join(dirpath, f)
+                zf.write(full, os.path.relpath(full, out).replace(os.sep, "/"))
+    sys.exit(0)
 with tarfile.open(os.path.join(out, name + ".tar.gz"), "w:gz") as tf:
     def add(path, arc, mode):
         ti = tf.gettarinfo(path, arc)
@@ -83,10 +92,13 @@ with tarfile.open(os.path.join(out, name + ".tar.gz"), "w:gz") as tf:
             full = os.path.join(dirpath, f)
             add(full, os.path.relpath(full, out).replace(os.sep, "/"), 0o755 if f == "xboard" else 0o644)
 PYEOF
+  elif [ "$os" = "windows" ]; then
+    ( cd "$OUT" && zip -qr "$name.zip" "$name" )
   else
     tar -C "$OUT" --mode=755 -czf "$OUT/$name.tar.gz" "$name"
   fi
-  ( cd "$OUT" && sha256sum "$name.tar.gz" >> SHA256SUMS )
+  pkg="$name.tar.gz"; [ "$os" = "windows" ] && pkg="$name.zip"
+  ( cd "$OUT" && sha256sum "$pkg" >> SHA256SUMS )
   rm -rf "$dir"
 done
 

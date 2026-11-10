@@ -1,0 +1,89 @@
+# 编译并发布到 GitHub Releases。
+#
+# - 推送 v* 标签（如 git tag v1.2.0 && git push fork v1.2.0）：发布正式版本 v1.2.0，附带编译好的安装包。
+# - 推送到 go-rewrite / master 分支：更新滚动预发布版「nightly-<分支名>」，始终是该分支最新一次提交的编译结果。
+# - 也可以在 Actions 页面手动运行（workflow_dispatch），效果同推送分支。
+#
+# 安装包由 scripts/build-release.sh 生成（会先构建管理端前端，再跑 gofmt / vet / test，测试不过不会发布）：
+#   xboard-<版本>-linux-amd64.tar.gz、linux-arm64.tar.gz、windows-amd64.zip，以及 SHA256SUMS。
+name: Release
+
+on:
+  push:
+    branches: [go-rewrite, master]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin-src/source/package-lock.json
+
+      - name: 计算版本号
+        id: ver
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            branch="$(echo "$GITHUB_REF_NAME" | tr '/' '-')"
+            echo "version=$(date -u +%Y%m%d)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            echo "tag=nightly-$branch" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 编译
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          TARGETS: linux/amd64 linux/arm64 windows/amd64
+        run: bash scripts/build-release.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xboard-${{ steps.ver.outputs.version }}
+          path: dist/*
+
+      - name: 发布正式版本
+        if: steps.ver.outputs.prerelease == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --title "$TAG" --generate-notes --verify-tag
+          fi
+
+      - name: 更新滚动预发布版
+        if: steps.ver.outputs.prerelease == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" dist/* --prerelease --target "$GITHUB_SHA" \
+            --title "$TAG（$VERSION）" \
+            --notes "分支 ${GITHUB_REF_NAME} 最新提交 ${GITHUB_SHA::7} 的自动编译版本，每次推送都会覆盖。正式版本请看不带 nightly 的 Release。"
